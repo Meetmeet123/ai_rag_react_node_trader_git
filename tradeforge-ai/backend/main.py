@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 
 from config import settings
-from database.connection import init_db
+from database.connection import init_db, close_db
 
 # ---------------------------------------------------------------------------
 # Configure structured logging
@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 
     # -- Initialize database ------------------------------------------------
     try:
-        init_db()
+        await init_db()
         logger.info("Database initialized successfully")
     except Exception as exc:
         logger.error("Database initialization failed: {}", exc)
@@ -186,6 +186,13 @@ async def lifespan(app: FastAPI):
             logger.info("Market data ingestor closed")
     except Exception as exc:
         logger.warning("Error closing ingestor: {}", exc)
+
+    # Close MongoDB connection
+    try:
+        await close_db()
+        logger.info("Database connection closed")
+    except Exception as exc:
+        logger.warning("Error closing database connection: {}", exc)
 
     logger.info("{} shutdown complete", settings.APP_NAME)
 

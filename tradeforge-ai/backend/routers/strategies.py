@@ -13,15 +13,17 @@ Strategy Management API Routes
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
-from sqlalchemy.orm import Session
 
-from database.connection import get_db_session
 from database.models import Strategy, StrategyStatus
+from routers.auth import get_current_user_optional, UserDocument
 
 router = APIRouter()
 
@@ -51,7 +53,7 @@ class StrategyCreate(BaseModel):
 class StrategyResponse(BaseModel):
     """Strategy response model."""
 
-    id: int
+    id: str
     name: str
     description: Optional[str]
     instrument: str
@@ -74,9 +76,6 @@ class StrategyResponse(BaseModel):
     created_at: Optional[str]
     updated_at: Optional[str]
 
-    class Config:
-        from_attributes = True
-
 
 class StrategyListResponse(BaseModel):
     """Paginated strategy list response."""
@@ -97,7 +96,7 @@ class StrategyActionResponse(BaseModel):
 
     success: bool
     message: str
-    strategy_id: Optional[int] = None
+    strategy_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -105,10 +104,21 @@ class StrategyActionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _object_id(id_str: str) -> ObjectId:
+    """Convert a string to an ObjectId or raise a 400 error."""
+    try:
+        return ObjectId(id_str)
+    except InvalidId as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid ID format: {id_str}",
+        ) from exc
+
+
 def _strategy_to_dict(strategy: Strategy) -> Dict[str, Any]:
-    """Convert a Strategy ORM object to a serialisable dict."""
+    """Convert a Strategy document to a serialisable dict."""
     return {
-        "id": strategy.id,
+        "id": str(strategy.id),
         "name": strategy.name,
         "description": strategy.description,
         "instrument": strategy.instrument,
@@ -146,22 +156,25 @@ def _strategy_to_dict(strategy: Strategy) -> Dict[str, Any]:
 )
 async def list_strategies(
     status: Optional[str] = None,
-    db: Session = Depends(get_db_session),
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyListResponse:
     """List all strategies with optional filter by status."""
-    query = db.query(Strategy)
+    query = Strategy.find()
+
+    if current_user is not None:
+        query = query.find(Strategy.user_id == current_user.id)
 
     if status:
         try:
             status_enum = StrategyStatus(status.lower())
-            query = query.filter(Strategy.status == status_enum)
+            query = query.find(Strategy.status == status_enum)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid status '{status}'. Valid: {[s.value for s in StrategyStatus]}",
             )
 
-    strategies = query.order_by(Strategy.created_at.desc()).all()
+    strategies = await query.sort(-Strategy.created_at).to_list()
     strategy_dicts = [_strategy_to_dict(s) for s in strategies]
 
     logger.debug("Listed {} strategies (filter={})", len(strategy_dicts), status)
@@ -182,11 +195,12 @@ async def list_strategies(
 )
 async def create_strategy(
     strategy: StrategyCreate,
-    db: Session = Depends(get_db_session),
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Create a new strategy."""
     try:
         db_strategy = Strategy(
+            user_id=current_user.id if current_user else None,
             name=strategy.name,
             description=strategy.description,
             instrument=strategy.instrument.upper(),
@@ -216,9 +230,7 @@ async def create_strategy(
             nl_prompt=strategy.nl_prompt,
         )
 
-        db.add(db_strategy)
-        db.commit()
-        db.refresh(db_strategy)
+        await db_strategy.insert()
 
         logger.info("Created strategy id={} name='{}'", db_strategy.id, db_strategy.name)
 
@@ -241,16 +253,19 @@ async def create_strategy(
     description="Get detailed information about a specific strategy.",
 )
 async def get_strategy(
-    strategy_id: int,
-    db: Session = Depends(get_db_session),
+    strategy_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Get strategy details by ID."""
-    strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    strategy = await Strategy.get(_object_id(strategy_id))
     if not strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
+
+    if current_user is not None and strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     return StrategyResponse(**_strategy_to_dict(strategy))
 
@@ -262,17 +277,20 @@ async def get_strategy(
     description="Update an existing strategy's parameters.",
 )
 async def update_strategy(
-    strategy_id: int,
+    strategy_id: str,
     strategy: StrategyCreate,
-    db: Session = Depends(get_db_session),
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Update an existing strategy."""
-    db_strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    db_strategy = await Strategy.get(_object_id(strategy_id))
     if not db_strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
+
+    if current_user is not None and db_strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     db_strategy.name = strategy.name
     db_strategy.description = strategy.description
@@ -288,9 +306,9 @@ async def update_strategy(
     db_strategy.target_value = float(strategy.target.get("value", db_strategy.target_value or 2.0))
     db_strategy.position_sizing_type = strategy.position_sizing.get("type", db_strategy.position_sizing_type)
     db_strategy.position_sizing_value = float(strategy.position_sizing.get("value", db_strategy.position_sizing_value or 1.0))
+    db_strategy.touch()
 
-    db.commit()
-    db.refresh(db_strategy)
+    await db_strategy.save()
 
     logger.info("Updated strategy id={}", strategy_id)
 
@@ -304,20 +322,22 @@ async def update_strategy(
     description="Delete a strategy by ID. Associated trades, signals, and backtests are preserved.",
 )
 async def delete_strategy(
-    strategy_id: int,
-    db: Session = Depends(get_db_session),
+    strategy_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> Dict[str, Any]:
     """Delete a strategy by ID."""
-    db_strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    db_strategy = await Strategy.get(_object_id(strategy_id))
     if not db_strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
 
+    if current_user is not None and db_strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
     name = db_strategy.name
-    db.delete(db_strategy)
-    db.commit()
+    await db_strategy.delete()
 
     logger.info("Deleted strategy id={} name='{}'", strategy_id, name)
 
@@ -331,17 +351,20 @@ async def delete_strategy(
     description="Deploy a strategy to paper trading or live trading.",
 )
 async def deploy_strategy(
-    strategy_id: int,
+    strategy_id: str,
     request: DeployRequest,
-    db: Session = Depends(get_db_session),
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyActionResponse:
     """Deploy strategy to paper or live trading."""
-    db_strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    db_strategy = await Strategy.get(_object_id(strategy_id))
     if not db_strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
+
+    if current_user is not None and db_strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     mode = request.mode.lower()
     if mode not in ("paper", "live"):
@@ -350,9 +373,16 @@ async def deploy_strategy(
             detail=f"Invalid mode '{mode}'. Must be 'paper' or 'live'.",
         )
 
+    if mode == "live" and (current_user is None or not current_user.is_approved_for_live):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Live trading requires admin approval",
+        )
+
     new_status = StrategyStatus.PAPER if mode == "paper" else StrategyStatus.ACTIVE
     db_strategy.status = new_status
-    db.commit()
+    db_strategy.touch()
+    await db_strategy.save()
 
     logger.info(
         "Deployed strategy id={} to {} mode (status={})",
@@ -375,20 +405,24 @@ async def deploy_strategy(
     description="Stop a deployed strategy and set status back to draft.",
 )
 async def stop_strategy(
-    strategy_id: int,
-    db: Session = Depends(get_db_session),
+    strategy_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyActionResponse:
     """Stop a deployed strategy."""
-    db_strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    db_strategy = await Strategy.get(_object_id(strategy_id))
     if not db_strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
 
+    if current_user is not None and db_strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
     previous_status = db_strategy.status.value if db_strategy.status else "unknown"
     db_strategy.status = StrategyStatus.DRAFT
-    db.commit()
+    db_strategy.touch()
+    await db_strategy.save()
 
     logger.info(
         "Stopped strategy id={} (previous status={})",
@@ -411,18 +445,22 @@ async def stop_strategy(
     description="Create a copy of an existing strategy with '- Copy' appended to the name.",
 )
 async def duplicate_strategy(
-    strategy_id: int,
-    db: Session = Depends(get_db_session),
+    strategy_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Duplicate a strategy."""
-    db_strategy = db.query(Strategy).filter(Strategy.id == strategy_id).first()
+    db_strategy = await Strategy.get(_object_id(strategy_id))
     if not db_strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {strategy_id} not found",
         )
 
+    if current_user is not None and db_strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
     new_strategy = Strategy(
+        user_id=current_user.id if current_user else None,
         name=f"{db_strategy.name} - Copy",
         description=db_strategy.description,
         instrument=db_strategy.instrument,
@@ -443,9 +481,7 @@ async def duplicate_strategy(
         is_ai_generated=db_strategy.is_ai_generated,
     )
 
-    db.add(new_strategy)
-    db.commit()
-    db.refresh(new_strategy)
+    await new_strategy.insert()
 
     logger.info(
         "Duplicated strategy id={} -> new id={}",

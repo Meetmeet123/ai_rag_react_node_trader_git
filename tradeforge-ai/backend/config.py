@@ -23,13 +23,20 @@ class Settings(BaseSettings):
     APP_NAME: str = Field(default="TradeForge AI", description="Application display name")
     DEBUG: bool = Field(default=False, description="Enable debug mode with verbose logging")
     SECRET_KEY: str = Field(description="Secret key for JWT signing and encryption")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=60 * 24, description="JWT access token expiration in minutes"
+    )
 
     # ------------------------------------------------------------------
-    # Database
+    # Database (MongoDB)
     # ------------------------------------------------------------------
-    DATABASE_URL: str = Field(
-        default="sqlite:///./tradeforge.db",
-        description="SQLAlchemy database connection URL"
+    MONGODB_URI: str = Field(
+        default="mongodb://localhost:27017/tradeforge",
+        description="MongoDB connection URI",
+    )
+    MONGODB_DB_NAME: str = Field(
+        default="tradeforge",
+        description="MongoDB database name (overrides URI db name if set)",
     )
 
     # ------------------------------------------------------------------

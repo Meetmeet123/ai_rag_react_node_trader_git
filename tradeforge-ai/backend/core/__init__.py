@@ -9,7 +9,6 @@ Modules:
 """
 
 from core.llm_engine import (
-    Action,
     Condition,
     LLMEngine,
     PositionSizingConfig,
@@ -33,5 +32,4 @@ __all__ = [
     "format_strategy_for_display",
     "merge_strategies",
     "validate_strategy",
-    "Action",
 ]

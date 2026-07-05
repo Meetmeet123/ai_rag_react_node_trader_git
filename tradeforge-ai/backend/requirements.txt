@@ -19,10 +19,9 @@ pydantic>=2.9.0                     # Pydantic v2 for data schemas
 pydantic-settings>=2.5.0            # Settings management from .env
 email-validator>=2.2.0              # Email validation for user accounts
 
-# --- Database ---
-SQLAlchemy>=2.0.36                  # ORM (v2 syntax used across models)
-alembic>=1.13.0                     # Database migrations
-psycopg2-binary>=2.9.10             # PostgreSQL driver (production)
+# --- Database (MongoDB) ---
+motor>=3.6.0                        # Async MongoDB driver
+beanie>=1.26.0                      # Async ODM for MongoDB
 
 # --- Task Queue & Cache ---
 celery>=5.4.0                       # Background task worker
