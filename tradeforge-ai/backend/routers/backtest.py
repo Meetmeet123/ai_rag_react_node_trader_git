@@ -14,12 +14,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from datetime import datetime
+
+import pandas as pd
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
 
+from config import settings
+from core.backtest_engine import BacktestConfig, BacktestEngine
+from core.condition_evaluator import evaluate_conditions
+from core.market_data.ingestor import MarketDataIngestor
+from core.synthetic_data import generate_ohlcv
 from database.models import BacktestRun, Strategy
 from routers.auth import get_current_user_optional, UserDocument
 
@@ -198,6 +206,117 @@ def _backtest_detail_to_dict(bt: BacktestRun, strategy_name: Optional[str] = Non
 # ---------------------------------------------------------------------------
 
 
+async def _execute_backtest(
+    backtest_id: str,
+    strategy_id: str,
+    request: BacktestRequest,
+) -> None:
+    """Run the backtest engine and persist results to the BacktestRun document."""
+    bt = await BacktestRun.get(_object_id(backtest_id))
+    strategy = await Strategy.get(_object_id(strategy_id))
+    if not bt or not strategy:
+        logger.warning("Backtest or strategy missing for execution id={}", backtest_id)
+        return
+
+    try:
+        ingestor = MarketDataIngestor(data_dir=settings.HISTORICAL_DATA_DIR)
+        df = await ingestor.fetch_historical(
+            strategy.instrument,
+            request.start_date,
+            request.end_date,
+            timeframe=strategy.timeframe or "1d",
+        )
+        await ingestor.close()
+
+        if df.empty:
+            logger.warning(
+                "No market data for {} ({}); falling back to synthetic data",
+                strategy.instrument,
+                strategy.timeframe,
+            )
+            df = generate_ohlcv(
+                strategy.instrument,
+                request.start_date,
+                request.end_date,
+                timeframe=strategy.timeframe or "1d",
+            )
+
+        df = df.set_index("timestamp")
+        df.columns = [c.lower() for c in df.columns]
+
+        entry_signals = evaluate_conditions(df, strategy.entry_conditions or [])
+        exit_signals = evaluate_conditions(df, strategy.exit_conditions or [])
+        if entry_signals is None:
+            entry_signals = pd.Series(False, index=df.index)
+        if exit_signals is None:
+            exit_signals = pd.Series(False, index=df.index)
+
+        atr_series = None
+        if strategy.stop_loss_type == "atr" or strategy.target_type == "atr":
+            from core.indicators import atr
+
+            atr_series = atr(df["high"], df["low"], df["close"], 14)
+
+        config = BacktestConfig(
+            initial_capital=request.initial_capital,
+            brokerage_per_order=request.brokerage_per_order,
+            slippage_pct=request.slippage_pct,
+            position_sizing_type=request.position_sizing_type,
+            position_sizing_value=request.position_sizing_value,
+            stop_loss_type=request.stop_loss_type,
+            stop_loss_value=request.stop_loss_value,
+            target_type=request.target_type,
+            target_value=request.target_value,
+            allow_short=request.allow_short,
+            max_positions=1,
+        )
+        engine = BacktestEngine(config)
+        result = engine.run(
+            df,
+            entry_signals,
+            exit_signals,
+            symbol=strategy.instrument,
+            atr_series=atr_series,
+        )
+
+        bt.status = "completed"
+        bt.total_trades = result.total_trades
+        bt.winning_trades = result.winning_trades
+        bt.losing_trades = result.losing_trades
+        bt.win_rate = result.win_rate
+        bt.net_pnl = result.net_pnl
+        bt.net_pnl_pct = result.net_pnl_pct
+        bt.gross_profit = result.gross_profit
+        bt.gross_loss = result.gross_loss
+        bt.profit_factor = result.profit_factor
+        bt.max_drawdown = result.max_drawdown
+        bt.max_drawdown_pct = result.max_drawdown_pct
+        bt.sharpe_ratio = result.sharpe_ratio
+        bt.avg_profit_per_trade = result.avg_profit_per_trade
+        bt.avg_loss_per_trade = result.avg_loss_per_trade
+        bt.avg_holding_period = result.avg_holding_period_hours
+        bt.equity_curve = result.equity_curve
+        bt.drawdown_curve = result.drawdown_curve
+        bt.monthly_returns = {"monthly": result.monthly_returns} if result.monthly_returns else None
+        bt.trade_log = [t.to_dict() for t in result.trade_log]
+        bt.completed_at = datetime.utcnow()
+        await bt.save()
+
+        logger.info(
+            "Backtest completed id={} trades={} pnl={:.2f} win_rate={:.1f}%",
+            backtest_id,
+            result.total_trades,
+            result.net_pnl,
+            result.win_rate,
+        )
+    except Exception as exc:
+        logger.exception("Backtest execution failed id={}", backtest_id)
+        bt.status = "failed"
+        bt.error_message = str(exc)
+        bt.completed_at = datetime.utcnow()
+        await bt.save()
+
+
 @router.post(
     "/run",
     response_model=BacktestDetailResponse,
@@ -245,9 +364,7 @@ async def run_backtest(
         request.initial_capital,
     )
 
-    # NOTE: The actual backtest execution would be done in a background task
-    # using the BacktestEngine. For now, we create the record and return it.
-    # The background task would update the record with results.
+    background_tasks.add_task(_execute_backtest, str(backtest_run.id), request.strategy_id, request)
 
     return BacktestDetailResponse(**_backtest_detail_to_dict(backtest_run, strategy.name))
 

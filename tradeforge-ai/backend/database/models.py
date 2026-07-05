@@ -38,6 +38,7 @@ class Segment(str, enum.Enum):
     FUTURES = "futures"
     OPTIONS = "options"
     INDEX = "index"
+    MCX = "mcx"
 
 
 class OrderType(str, enum.Enum):

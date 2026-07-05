@@ -957,3 +957,698 @@ exit_conditions
 2026-07-06 02:54:55 | INFO     | main:lifespan:152 - Auto-training scheduler started
 2026-07-06 02:54:55 | INFO     | main:lifespan:156 - All services initialized successfully
 2026-07-06 02:54:55 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 02:59:28 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 02:59:28 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 02:59:28 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 02:59:28 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 02:59:28 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 02:59:28 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 02:59:28 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 02:59:29 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 02:59:29 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:00:44 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:00:44 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:00:44 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:00:54 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:00:58 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:00:58 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:00:59 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:01:02 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:01:02 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:01:02 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:01:02 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:01:02 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:01:02 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:01:02 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:01:02 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:01:02 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:01:02 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:01:02 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:01:02 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:01:02 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:01:02 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:01:02 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:01:02 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:01:02 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:01:02 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:01:02 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:01:02 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:01:02 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:01:02 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:01:02 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:01:02 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:01:02 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:05:42 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 03:05:42 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 03:05:42 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 03:05:42 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 03:05:42 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 03:05:42 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:05:42 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 03:05:42 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 03:05:42 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:05:50 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:05:50 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:05:50 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:06:01 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:06:04 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:06:04 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:06:06 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:06:08 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:06:08 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:06:08 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:06:08 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:06:08 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:06:08 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:06:08 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:06:08 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:06:08 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:06:08 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:06:08 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:06:08 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:06:08 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:06:08 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:06:08 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:06:08 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:06:08 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:06:08 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:06:08 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:06:08 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:06:08 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:06:08 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:06:08 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:06:08 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:06:08 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:16:51 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 03:16:51 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 03:16:51 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 03:16:51 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 03:16:51 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 03:16:51 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:16:51 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 03:16:51 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 03:16:51 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:16:59 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:16:59 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:16:59 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:17:09 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:17:13 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:17:13 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:17:14 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:17:16 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:17:16 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:17:16 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:17:16 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:17:16 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:17:16 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:17:16 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:17:16 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:17:16 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:17:16 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:17:16 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:17:16 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:17:16 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:17:16 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:17:16 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:17:16 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:17:16 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:17:16 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:17:16 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:17:16 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:17:16 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:17:16 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:17:16 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:17:16 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:17:16 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:19:21 | INFO     | routers.auth:register:243 - Registered new user id=6a4ad1609b4695bcd5caf428 email=test1783288160@example.com
+2026-07-06 03:19:21 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:19:42 | INFO     | routers.strategies:create_strategy:235 - Created strategy id=6a4ad1769b4695bcd5caf42a name='Test Strategy'
+2026-07-06 03:20:33 | INFO     | routers.strategies:create_strategy:235 - Created strategy id=6a4ad1a99b4695bcd5caf42b name='Test Strategy 2'
+2026-07-06 03:20:33 | INFO     | routers.strategies:update_strategy:313 - Updated strategy id=6a4ad1a99b4695bcd5caf42b
+2026-07-06 03:24:57 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 03:24:57 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 03:24:57 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 03:24:57 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 03:24:57 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 03:24:57 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:24:57 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 03:24:57 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 03:24:57 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:25:05 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:25:05 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:25:05 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:25:15 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:25:19 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:25:19 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:25:20 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:25:22 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:25:22 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:25:22 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:25:22 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:25:22 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:25:22 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:25:22 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:25:22 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:25:22 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:25:22 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:25:22 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:25:22 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:25:22 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:25:22 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:25:22 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:25:22 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:25:22 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:25:22 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:25:22 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:25:22 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:25:22 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:25:22 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:25:22 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:25:22 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:25:22 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:27:18 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:29:07 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 03:29:07 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 03:29:07 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 03:29:07 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 03:29:07 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 03:29:07 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:29:07 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 03:29:07 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 03:29:07 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:29:15 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:29:15 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:29:15 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:29:26 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:29:29 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:29:29 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:29:30 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:29:32 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:29:32 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:29:32 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:29:32 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:29:32 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:29:32 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:29:32 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:29:32 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:29:32 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:29:32 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:29:32 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:29:32 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:29:32 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:29:32 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:29:32 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:29:32 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:29:32 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:29:32 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:29:32 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:29:32 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:29:32 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:29:32 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:29:32 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:29:32 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:29:32 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:31:27 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:31:28 | INFO     | routers.backtest:run_backtest:352 - Backtest started id=6a4ad4384e3c58a64f29ce43 strategy_id=6a4ad1a99b4695bcd5caf42b capital=1000000.0
+2026-07-06 03:31:28 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:31:28 | WARNING  | core.market_data.ingestor:_ensure_nse_session:346 - Failed to prime NSE session: Client error '403 Forbidden' for url 'https://www.nseindia.com/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-07-06 03:31:28 | WARNING  | core.market_data.ingestor:_fetch_nse_historical:376 - [BANKNIFTY] NSE HTTP error 503
+2026-07-06 03:31:29 | WARNING  | core.market_data.ingestor:_fetch_yahoo_historical:447 - [BANKNIFTY] Yahoo fetch error: Client error '404 Not Found' for url 'https://query1.finance.yahoo.com/v8/finance/chart/BANKNIFTY.NS?period1=1704047400&period2=1717180200&interval=1d&events=history'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-06 03:31:29 | ERROR    | core.market_data.ingestor:fetch_historical:185 - [BANKNIFTY] All data sources exhausted — returning empty DataFrame
+2026-07-06 03:31:29 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:31:29 | ERROR    | routers.backtest:_execute_backtest:305 - Backtest execution failed id=6a4ad4384e3c58a64f29ce43
+Traceback (most recent call last):
+
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/bin/uvicorn", line 6, in <module>
+    sys.exit(main())
+    │   │    └ <Command main>
+    │   └ <built-in function exit>
+    └ <module 'sys' (built-in)>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1569, in __call__
+    return self.main(*args, **kwargs)
+           │    │     │       └ {}
+           │    │     └ ()
+           │    └ <function Command.main at 0x1065f42c0>
+           └ <Command main>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1490, in main
+    rv = self.invoke(ctx)
+         │    │      └ <click.core.Context object at 0x105d417d0>
+         │    └ <function Command.invoke at 0x1065f3f60>
+         └ <Command main>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1353, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8000, 'app': 'main:app', 'uds': None, 'fd': None, 'reload': False, 'reload_dirs': (), 'reload_inc...
+           │   │      │    │           └ <click.core.Context object at 0x105d417d0>
+           │   │      │    └ <function main at 0x106d85c60>
+           │   │      └ <Command main>
+           │   └ <function Context.invoke at 0x1065f31a0>
+           └ <click.core.Context object at 0x105d417d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 907, in invoke
+    return callback(*args, **kwargs)
+           │         │       └ {'host': '0.0.0.0', 'port': 8000, 'app': 'main:app', 'uds': None, 'fd': None, 'reload': False, 'reload_dirs': (), 'reload_inc...
+           │         └ ()
+           └ <function main at 0x106d85c60>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/main.py", line 440, in main
+    run(
+    └ <function run at 0x106541260>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/main.py", line 621, in run
+    server.run()
+    │      └ <function Server.run at 0x106ba59e0>
+    └ <uvicorn.server.Server object at 0x106f4f210>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/server.py", line 74, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+           │           │    │             │                      │    │      └ <function Config.get_loop_factory at 0x10650a980>
+           │           │    │             │                      │    └ <uvicorn.config.Config object at 0x105d43c90>
+           │           │    │             │                      └ <uvicorn.server.Server object at 0x106f4f210>
+           │           │    │             └ None
+           │           │    └ <function Server.serve at 0x106ba5a80>
+           │           └ <uvicorn.server.Server object at 0x106f4f210>
+           └ <function asyncio_run at 0x1064e7c40>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/_compat.py", line 30, in asyncio_run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x10ec71b70>
+           │      └ <function Runner.run at 0x10635dd00>
+           └ <asyncio.runners.Runner object at 0x10eb8a690>
+  File "/Users/meettrivedi/.pyenv/versions/3.11.9/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x10ed99b40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x10eb8a690>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x10edc4bd0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x127298710>>
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+                 │    └ <fastapi.applications.FastAPI object at 0x10876e2d0>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x10edc4bd0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x127298710>>
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x127298710>>
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ed55b50>
+          └ <fastapi.applications.FastAPI object at 0x10876e2d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x127111260>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x10ed74490>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ed55b50>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x127111260>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x10ee4d1d0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x10ed74490>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+          │                            │    │    │     │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x127111260>
+          │                            │    │    │     │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │                            │    │    └ <starlette.requests.Request object at 0x127270a10>
+          │                            │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x10ee4d1d0>
+          └ <function wrap_app_handling_exceptions at 0x107c28900>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <fastapi.routing.APIRouter object at 0x10876e490>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <bound method APIRouter.app of <fastapi.routing.APIRouter object at 0x10876e490>>
+          └ <fastapi.routing.APIRouter object at 0x10876e490>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2683, in app
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │     │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │     └ <function _IncludedRouter.handle at 0x107c4b240>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1753, in handle
+    await self.original_router.handle(scope, receive, send)
+          │    │               │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │    │               │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │    │               │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    │               └ <function APIRouter.handle at 0x107c61260>
+          │    └ <fastapi.routing.APIRouter object at 0x108915490>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2738, in handle
+    await included_router._handle_selected(scope, receive, send)
+          │               │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │               │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │               │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │               └ <function _IncludedRouter._handle_selected at 0x107c4b2e0>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1773, in _handle_selected
+    await original_route.handle(scope, receive, send)
+          │              │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │              │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │              │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │              └ <function APIRoute.handle at 0x107c493a0>
+          └ APIRoute(path='/run', name='run_backtest', methods=['POST'])
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1264, in handle
+    await app(scope, receive, send)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <function request_response.<locals>.app at 0x1272091c0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127111440>
+          │                            │    │        │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │                            │    └ <starlette.requests.Request object at 0x1271535d0>
+          │                            └ <function request_response.<locals>.app.<locals>.app at 0x12720a0c0>
+          └ <function wrap_app_handling_exceptions at 0x107c28900>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127209c60>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <function request_response.<locals>.app.<locals>.app at 0x12720a0c0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 137, in app
+    await response(scope, receive, send)
+          │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x127209c60>
+          │        │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x1272987...
+          │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <starlette.responses.Response object at 0x127261290>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/responses.py", line 170, in __call__
+    await self.background()
+          │    └ <fastapi.background.BackgroundTasks object at 0x127262990>
+          └ <starlette.responses.Response object at 0x127261290>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/background.py", line 36, in __call__
+    await task()
+          └ <starlette.background.BackgroundTask object at 0x1272ae210>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/background.py", line 21, in __call__
+    await self.func(*self.args, **self.kwargs)
+          │    │     │    │       │    └ {}
+          │    │     │    │       └ <starlette.background.BackgroundTask object at 0x1272ae210>
+          │    │     │    └ ('6a4ad4384e3c58a64f29ce43', '6a4ad1a99b4695bcd5caf42b', BacktestRequest(strategy_id='6a4ad1a99b4695bcd5caf42b', start_date=d...
+          │    │     └ <starlette.background.BackgroundTask object at 0x1272ae210>
+          │    └ <function _execute_backtest at 0x10eb6d580>
+          └ <starlette.background.BackgroundTask object at 0x1272ae210>
+
+> File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/routers/backtest.py", line 231, in _execute_backtest
+    raise ValueError(
+
+ValueError: No market data available for BANKNIFTY (1h) between 2024-01-01 and 2024-06-01
+2026-07-06 03:31:50 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:31:50 | INFO     | routers.backtest:run_backtest:352 - Backtest started id=6a4ad44e4e3c58a64f29ce44 strategy_id=6a4ad1769b4695bcd5caf42a capital=1000000.0
+2026-07-06 03:31:50 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:31:50 | WARNING  | core.market_data.ingestor:_ensure_nse_session:346 - Failed to prime NSE session: Client error '403 Forbidden' for url 'https://www.nseindia.com/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-07-06 03:31:51 | WARNING  | core.market_data.ingestor:_fetch_nse_historical:376 - [NIFTY50] NSE HTTP error 503
+2026-07-06 03:31:51 | ERROR    | core.market_data.ingestor:fetch_historical:185 - [NIFTY50] All data sources exhausted — returning empty DataFrame
+2026-07-06 03:31:51 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:31:51 | ERROR    | routers.backtest:_execute_backtest:305 - Backtest execution failed id=6a4ad44e4e3c58a64f29ce44
+Traceback (most recent call last):
+
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/bin/uvicorn", line 6, in <module>
+    sys.exit(main())
+    │   │    └ <Command main>
+    │   └ <built-in function exit>
+    └ <module 'sys' (built-in)>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1569, in __call__
+    return self.main(*args, **kwargs)
+           │    │     │       └ {}
+           │    │     └ ()
+           │    └ <function Command.main at 0x1065f42c0>
+           └ <Command main>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1490, in main
+    rv = self.invoke(ctx)
+         │    │      └ <click.core.Context object at 0x105d417d0>
+         │    └ <function Command.invoke at 0x1065f3f60>
+         └ <Command main>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 1353, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           │   │      │    │           │   └ {'host': '0.0.0.0', 'port': 8000, 'app': 'main:app', 'uds': None, 'fd': None, 'reload': False, 'reload_dirs': (), 'reload_inc...
+           │   │      │    │           └ <click.core.Context object at 0x105d417d0>
+           │   │      │    └ <function main at 0x106d85c60>
+           │   │      └ <Command main>
+           │   └ <function Context.invoke at 0x1065f31a0>
+           └ <click.core.Context object at 0x105d417d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/click/core.py", line 907, in invoke
+    return callback(*args, **kwargs)
+           │         │       └ {'host': '0.0.0.0', 'port': 8000, 'app': 'main:app', 'uds': None, 'fd': None, 'reload': False, 'reload_dirs': (), 'reload_inc...
+           │         └ ()
+           └ <function main at 0x106d85c60>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/main.py", line 440, in main
+    run(
+    └ <function run at 0x106541260>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/main.py", line 621, in run
+    server.run()
+    │      └ <function Server.run at 0x106ba59e0>
+    └ <uvicorn.server.Server object at 0x106f4f210>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/server.py", line 74, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+           │           │    │             │                      │    │      └ <function Config.get_loop_factory at 0x10650a980>
+           │           │    │             │                      │    └ <uvicorn.config.Config object at 0x105d43c90>
+           │           │    │             │                      └ <uvicorn.server.Server object at 0x106f4f210>
+           │           │    │             └ None
+           │           │    └ <function Server.serve at 0x106ba5a80>
+           │           └ <uvicorn.server.Server object at 0x106f4f210>
+           └ <function asyncio_run at 0x1064e7c40>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/_compat.py", line 30, in asyncio_run
+    return runner.run(main)
+           │      │   └ <coroutine object Server.serve at 0x10ec71b70>
+           │      └ <function Runner.run at 0x10635dd00>
+           └ <asyncio.runners.Runner object at 0x10eb8a690>
+  File "/Users/meettrivedi/.pyenv/versions/3.11.9/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           │    │     │                  └ <Task pending name='Task-1' coro=<Server.serve() running at /Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge...
+           │    │     └ <cyfunction Loop.run_until_complete at 0x10ed99b40>
+           │    └ <uvloop.Loop running=True closed=False debug=False>
+           └ <asyncio.runners.Runner object at 0x10eb8a690>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/protocols/http/httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+                   └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x10edc4bd0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/uvicorn/middleware/proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+                 │    │   │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d50>>
+                 │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+                 │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+                 │    └ <fastapi.applications.FastAPI object at 0x10876e2d0>
+                 └ <uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware object at 0x10edc4bd0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+                           │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d50>>
+                           │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+                           └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <bound method RequestResponseCycle.send of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d50>>
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ed55b50>
+          └ <fastapi.applications.FastAPI object at 0x10876e2d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x121603e20>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.cors.CORSMiddleware object at 0x10ed74490>
+          └ <starlette.middleware.errors.ServerErrorMiddleware object at 0x10ed55b50>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x121603e20>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x10ee4d1d0>
+          └ <starlette.middleware.cors.CORSMiddleware object at 0x10ed74490>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+          │                            │    │    │     │      │        └ <function ServerErrorMiddleware.__call__.<locals>._send at 0x121603e20>
+          │                            │    │    │     │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │                            │    │    │     └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │                            │    │    └ <starlette.requests.Request object at 0x126ba4c90>
+          │                            │    └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+          │                            └ <starlette.middleware.exceptions.ExceptionMiddleware object at 0x10ee4d1d0>
+          └ <function wrap_app_handling_exceptions at 0x107c28900>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+          │    │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │    │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <fastapi.routing.APIRouter object at 0x10876e490>
+          └ <fastapi.middleware.asyncexitstack.AsyncExitStackMiddleware object at 0x10ee4d0d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+          │    │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │    │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    └ <bound method APIRouter.app of <fastapi.routing.APIRouter object at 0x10876e490>>
+          └ <fastapi.routing.APIRouter object at 0x10876e490>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2683, in app
+    await route.handle(scope, receive, send)
+          │     │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │     │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │     │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │     └ <function _IncludedRouter.handle at 0x107c4b240>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1753, in handle
+    await self.original_router.handle(scope, receive, send)
+          │    │               │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │    │               │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │    │               │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │    │               └ <function APIRouter.handle at 0x107c61260>
+          │    └ <fastapi.routing.APIRouter object at 0x108915490>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 2738, in handle
+    await included_router._handle_selected(scope, receive, send)
+          │               │                │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │               │                │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │               │                └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │               └ <function _IncludedRouter._handle_selected at 0x107c4b2e0>
+          └ _IncludedRouter(original_router=<fastapi.routing.APIRouter object at 0x108915490>, include_context=_RouterIncludeContext(incl...
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1773, in _handle_selected
+    await original_route.handle(scope, receive, send)
+          │              │      │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │              │      │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │              │      └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │              └ <function APIRoute.handle at 0x107c493a0>
+          └ APIRoute(path='/run', name='run_backtest', methods=['POST'])
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 1264, in handle
+    await app(scope, receive, send)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <function request_response.<locals>.app at 0x127111440>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+          │                            │    │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x1271118a0>
+          │                            │    │        │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │                            │    │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          │                            │    └ <starlette.requests.Request object at 0x12724dbd0>
+          │                            └ <function request_response.<locals>.app.<locals>.app at 0x1271114e0>
+          └ <function wrap_app_handling_exceptions at 0x107c28900>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+          │   │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x12720a3e0>
+          │   │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │   └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <function request_response.<locals>.app.<locals>.app at 0x1271114e0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/fastapi/routing.py", line 137, in app
+    await response(scope, receive, send)
+          │        │      │        └ <function wrap_app_handling_exceptions.<locals>.wrapped_app.<locals>.sender at 0x12720a3e0>
+          │        │      └ <bound method RequestResponseCycle.receive of <uvicorn.protocols.http.httptools_impl.RequestResponseCycle object at 0x10f677d...
+          │        └ {'type': 'http', 'asgi': {'version': '3.0', 'spec_version': '2.3'}, 'http_version': '1.1', 'server': ('127.0.0.1', 8000), 'cl...
+          └ <starlette.responses.Response object at 0x11c969450>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/responses.py", line 170, in __call__
+    await self.background()
+          │    └ <fastapi.background.BackgroundTasks object at 0x127152e10>
+          └ <starlette.responses.Response object at 0x11c969450>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/background.py", line 36, in __call__
+    await task()
+          └ <starlette.background.BackgroundTask object at 0x1271512d0>
+  File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/.venv/lib/python3.11/site-packages/starlette/background.py", line 21, in __call__
+    await self.func(*self.args, **self.kwargs)
+          │    │     │    │       │    └ {}
+          │    │     │    │       └ <starlette.background.BackgroundTask object at 0x1271512d0>
+          │    │     │    └ ('6a4ad44e4e3c58a64f29ce44', '6a4ad1769b4695bcd5caf42a', BacktestRequest(strategy_id='6a4ad1769b4695bcd5caf42a', start_date=d...
+          │    │     └ <starlette.background.BackgroundTask object at 0x1271512d0>
+          │    └ <function _execute_backtest at 0x10eb6d580>
+          └ <starlette.background.BackgroundTask object at 0x1271512d0>
+
+> File "/Applications/MAMP/htdocs/ai_rag_react_node_trader_git/tradeforge-ai/backend/routers/backtest.py", line 231, in _execute_backtest
+    raise ValueError(
+
+ValueError: No market data available for NIFTY50 (1d) between 2024-01-01 and 2024-06-01
+2026-07-06 03:32:42 | INFO     | main:lifespan:164 - Shutting down TradeForge AI...
+2026-07-06 03:32:42 | INFO     | core.auto_trainer:stop:311 - Auto-training stopped
+2026-07-06 03:32:42 | INFO     | main:lifespan:170 - Auto-training scheduler stopped
+2026-07-06 03:32:42 | INFO     | core.broker.paper_broker:disconnect:122 - PaperBroker disconnected
+2026-07-06 03:32:42 | INFO     | main:lifespan:178 - Broker disconnected
+2026-07-06 03:32:42 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:32:42 | INFO     | main:lifespan:186 - Market data ingestor closed
+2026-07-06 03:32:42 | INFO     | main:lifespan:193 - Database connection closed
+2026-07-06 03:32:42 | INFO     | main:lifespan:197 - TradeForge AI shutdown complete
+2026-07-06 03:32:50 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 03:32:50 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 03:32:50 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 03:33:00 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 03:33:04 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 03:33:04 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 03:33:05 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 03:33:07 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 03:33:07 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 03:33:07 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 03:33:07 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:33:07 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 03:33:07 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 03:33:07 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 03:33:07 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 03:33:07 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 03:33:07 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 03:33:07 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 03:33:07 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:33:07 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 03:33:07 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 03:33:07 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 03:33:07 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 03:33:07 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 03:33:07 | INFO     | core.auto_trainer:_load_state:1038 - Loaded pipeline state — 0 jobs, last_train=None
+2026-07-06 03:33:07 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 03:33:07 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 03:33:07 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 03:33:07 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 03:33:07 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 03:33:07 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 03:33:07 | INFO     | main:lifespan:157 - TradeForge AI is ready
+2026-07-06 03:35:03 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:35:04 | INFO     | routers.backtest:run_backtest:360 - Backtest started id=6a4ad50fbf1dd3b88ab6eeab strategy_id=6a4ad1769b4695bcd5caf42a capital=1000000.0
+2026-07-06 03:35:04 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:35:04 | WARNING  | core.market_data.ingestor:_ensure_nse_session:346 - Failed to prime NSE session: Client error '403 Forbidden' for url 'https://www.nseindia.com/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-07-06 03:35:04 | WARNING  | core.market_data.ingestor:_fetch_nse_historical:376 - [NIFTY50] NSE HTTP error 503
+2026-07-06 03:35:04 | ERROR    | core.market_data.ingestor:fetch_historical:185 - [NIFTY50] All data sources exhausted — returning empty DataFrame
+2026-07-06 03:35:04 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:35:04 | WARNING  | routers.backtest:_execute_backtest:232 - No market data for NIFTY50 (1d); falling back to synthetic data
+2026-07-06 03:35:04 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:35:04 | INFO     | core.backtest_engine:run:388 - Starting backtest | symbol=NIFTY50 bars=153 capital=1000000.0
+2026-07-06 03:35:04 | INFO     | core.backtest_engine:run:432 - Backtest complete | trades=0 pnl=0.00 sharpe=0.00 dd=0.00%
+2026-07-06 03:35:05 | INFO     | routers.backtest:_execute_backtest:305 - Backtest completed id=6a4ad50fbf1dd3b88ab6eeab trades=0 pnl=0.00 win_rate=0.0%
+2026-07-06 03:35:27 | INFO     | routers.auth:login:291 - User logged in id=6a4ad1609b4695bcd5caf428
+2026-07-06 03:35:27 | INFO     | routers.strategies:update_strategy:313 - Updated strategy id=6a4ad1769b4695bcd5caf42a
+2026-07-06 03:35:27 | INFO     | routers.backtest:run_backtest:360 - Backtest started id=6a4ad527bf1dd3b88ab6eeac strategy_id=6a4ad1769b4695bcd5caf42a capital=1000000.0
+2026-07-06 03:35:27 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 03:35:28 | WARNING  | core.market_data.ingestor:_ensure_nse_session:346 - Failed to prime NSE session: Client error '403 Forbidden' for url 'https://www.nseindia.com/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-07-06 03:35:28 | WARNING  | core.market_data.ingestor:_fetch_nse_historical:376 - [NIFTY50] NSE HTTP error 503
+2026-07-06 03:35:28 | ERROR    | core.market_data.ingestor:fetch_historical:185 - [NIFTY50] All data sources exhausted — returning empty DataFrame
+2026-07-06 03:35:28 | INFO     | core.market_data.ingestor:close:476 - MarketDataIngestor HTTP client closed
+2026-07-06 03:35:28 | WARNING  | routers.backtest:_execute_backtest:232 - No market data for NIFTY50 (1d); falling back to synthetic data
+2026-07-06 03:35:28 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 03:35:28 | INFO     | core.backtest_engine:run:388 - Starting backtest | symbol=NIFTY50 bars=153 capital=1000000.0
+2026-07-06 03:35:28 | INFO     | core.backtest_engine:run:432 - Backtest complete | trades=8 pnl=-326.23 sharpe=-402.23 dd=0.03%
+2026-07-06 03:35:28 | INFO     | routers.backtest:_execute_backtest:305 - Backtest completed id=6a4ad527bf1dd3b88ab6eeac trades=8 pnl=-326.23 win_rate=0.0%

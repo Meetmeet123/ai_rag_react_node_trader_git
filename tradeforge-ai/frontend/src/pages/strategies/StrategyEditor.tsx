@@ -1,16 +1,94 @@
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Clock, Layers, Sliders, Target, Shield } from 'lucide-react';
 import type { SavedStrategy, StopLossConfig, TargetConfig, PositionSizingConfig } from './types';
 import ConditionBuilder from './ConditionBuilder';
-import { TIMEFRAMES, NIFTY50_STOCKS } from './types';
+import { TIMEFRAMES, NIFTY50_STOCKS, timeframeLabel } from './types';
+import { strategyFormSchema, type StrategyFormData } from './validation';
 
 interface StrategyEditorProps {
   strategy: SavedStrategy | null;
   onUpdate: (strategy: SavedStrategy) => void;
+  activeTab: 'entry' | 'exit' | 'risk' | 'params';
+  onActiveTabChange: (tab: 'entry' | 'exit' | 'risk' | 'params') => void;
 }
 
-export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorProps) {
-  const [activeTab, setActiveTab] = useState<'entry' | 'exit' | 'risk' | 'params'>('entry');
+function savedToFormData(strategy: SavedStrategy): StrategyFormData {
+  return {
+    name: strategy.name,
+    description: strategy.description,
+    instrument: strategy.instrument,
+    segment: strategy.segment,
+    status: strategy.status,
+    timeframe: strategy.timeframe as StrategyFormData['timeframe'],
+    entryConditions: strategy.entryConditions,
+    exitConditions: strategy.exitConditions,
+    stopLoss: strategy.stopLoss,
+    target: strategy.target,
+    positionSizing: strategy.positionSizing,
+  };
+}
+
+function formDataToSaved(strategy: SavedStrategy, data: StrategyFormData): SavedStrategy {
+  return {
+    ...strategy,
+    ...data,
+  };
+}
+
+export default function StrategyEditor({
+  strategy,
+  onUpdate,
+  activeTab,
+  onActiveTabChange,
+}: StrategyEditorProps) {
+  const lastEmittedRef = useRef<SavedStrategy | null>(null);
+
+  const form = useForm<StrategyFormData>({
+    resolver: zodResolver(strategyFormSchema),
+    defaultValues: strategy ? savedToFormData(strategy) : undefined,
+    mode: 'onChange',
+  });
+
+  // Reset form when the selected strategy changes
+  useEffect(() => {
+    if (strategy) {
+      form.reset(savedToFormData(strategy));
+      lastEmittedRef.current = strategy;
+    }
+  }, [strategy?.id, form]);
+
+  // Sync fields controlled by the toolbar (name, segment, status) without
+  // resetting the whole form and losing in-progress condition edits.
+  useEffect(() => {
+    if (!strategy) return;
+    if (form.getValues('name') !== strategy.name) {
+      form.setValue('name', strategy.name, { shouldValidate: true });
+    }
+    if (form.getValues('segment') !== strategy.segment) {
+      form.setValue('segment', strategy.segment, { shouldValidate: true });
+    }
+    if (form.getValues('status') !== strategy.status) {
+      form.setValue('status', strategy.status, { shouldValidate: true });
+    }
+  }, [strategy?.name, strategy?.segment, strategy?.status, form, strategy]);
+
+  // Watch form values and propagate valid changes upward
+  useWatch({ control: form.control });
+  useEffect(() => {
+    if (!strategy) return;
+    const subscription = form.watch((value) => {
+      if (!form.formState.isValid) return;
+      const data = value as StrategyFormData;
+      const updated = formDataToSaved(strategy, data);
+      if (JSON.stringify(updated) !== JSON.stringify(lastEmittedRef.current)) {
+        lastEmittedRef.current = updated;
+        onUpdate(updated);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, strategy, onUpdate]);
 
   if (!strategy) {
     return (
@@ -23,16 +101,17 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
     );
   }
 
-  const updateField = <K extends keyof SavedStrategy>(field: K, value: SavedStrategy[K]) => {
-    onUpdate({ ...strategy, [field]: value });
-  };
-
   const tabs = [
     { key: 'entry' as const, label: 'Entry Rules', icon: Target },
     { key: 'exit' as const, label: 'Exit Rules', icon: Shield },
     { key: 'risk' as const, label: 'Risk & Position', icon: Sliders },
     { key: 'params' as const, label: 'Parameters', icon: Clock },
   ];
+
+  const fieldError = (name: keyof StrategyFormData) => {
+    const error = form.formState.errors[name];
+    return error ? <p className="text-[11px] text-[#EF4444] mt-1">{error.message}</p> : null;
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-[#030305] overflow-hidden">
@@ -41,7 +120,7 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
         {tabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => onActiveTabChange(tab.key)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-all ${
               activeTab === tab.key
                 ? 'bg-[#12121A] text-[#22D3EE]'
@@ -60,12 +139,13 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
           <div className="max-w-[700px] space-y-4">
             <ConditionBuilder
               title="Entry Conditions"
-              conditions={strategy.entryConditions}
-              onChange={(conds) => updateField('entryConditions', conds)}
+              conditions={form.watch('entryConditions')}
+              onChange={(conds) => form.setValue('entryConditions', conds, { shouldValidate: true })}
             />
+            {fieldError('entryConditions')}
             <div className="bg-[rgba(34,211,238,0.04)] border border-[rgba(34,211,238,0.08)] rounded-[8px] p-4">
               <p className="text-[12px] text-[#94A3B8]">
-                <span className="text-[#22D3EE] font-semibold">Tip:</span> Entry conditions define when to open a position. 
+                <span className="text-[#22D3EE] font-semibold">Tip:</span> Entry conditions define when to open a position.
                 Combine multiple indicators using AND/OR logic for more precise signals.
               </p>
             </div>
@@ -76,19 +156,32 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
           <div className="max-w-[700px] space-y-4">
             <ConditionBuilder
               title="Exit Conditions"
-              conditions={strategy.exitConditions}
-              onChange={(conds) => updateField('exitConditions', conds)}
+              conditions={form.watch('exitConditions')}
+              onChange={(conds) => form.setValue('exitConditions', conds, { shouldValidate: true })}
             />
+            {fieldError('exitConditions')}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <StopLossEditor value={strategy.stopLoss} onChange={(sl) => updateField('stopLoss', sl)} />
-              <TargetEditor value={strategy.target} onChange={(t) => updateField('target', t)} />
+              <StopLossEditor
+                value={form.watch('stopLoss')}
+                onChange={(sl) => form.setValue('stopLoss', sl, { shouldValidate: true })}
+                error={form.formState.errors.stopLoss?.message}
+              />
+              <TargetEditor
+                value={form.watch('target')}
+                onChange={(t) => form.setValue('target', t, { shouldValidate: true })}
+                error={form.formState.errors.target?.message}
+              />
             </div>
           </div>
         )}
 
         {activeTab === 'risk' && (
           <div className="max-w-[700px] space-y-4">
-            <PositionSizingEditor value={strategy.positionSizing} onChange={(ps) => updateField('positionSizing', ps)} />
+            <PositionSizingEditor
+              value={form.watch('positionSizing')}
+              onChange={(ps) => form.setValue('positionSizing', ps, { shouldValidate: true })}
+              error={form.formState.errors.positionSizing?.message}
+            />
           </div>
         )}
 
@@ -101,28 +194,29 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
                 {TIMEFRAMES.map((tf) => (
                   <button
                     key={tf}
-                    onClick={() => updateField('timeframe', tf)}
+                    type="button"
+                    onClick={() => form.setValue('timeframe', tf, { shouldValidate: true })}
                     className={`px-3 py-1.5 rounded-[6px] text-[12px] font-mono font-medium transition-all ${
-                      strategy.timeframe === tf
+                      form.watch('timeframe') === tf
                         ? 'bg-[rgba(34,211,238,0.12)] text-[#22D3EE] border border-[rgba(34,211,238,0.20)]'
                         : 'bg-[#12121A] text-[#64748B] border border-[rgba(255,255,255,0.06)] hover:text-[#94A3B8]'
                     }`}
                   >
-                    {tf}
+                    {timeframeLabel(tf)}
                   </button>
                 ))}
               </div>
+              {fieldError('timeframe')}
             </div>
 
             {/* Instrument */}
             <div>
               <label className="text-[12px] font-medium text-[#94A3B8] mb-2 block">Instrument</label>
               <select
-                value={strategy.instrument}
-                onChange={(e) => updateField('instrument', e.target.value)}
+                {...form.register('instrument')}
                 className="w-full h-9 px-3 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[6px] text-[13px] text-[#F1F5F9] font-mono focus:outline-none focus:border-[#22D3EE]"
               >
-                <option value="NIFTY 50">NIFTY 50 Index</option>
+                <option value="NIFTY50">NIFTY 50 Index</option>
                 <option value="BANKNIFTY">BANKNIFTY Index</option>
                 <option value="FINNIFTY">FINNIFTY Index</option>
                 <option value="SENSEX">SENSEX Index</option>
@@ -130,17 +224,18 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
                   <option key={stock} value={stock}>{stock}</option>
                 ))}
               </select>
+              {fieldError('instrument')}
             </div>
 
             {/* Description */}
             <div>
               <label className="text-[12px] font-medium text-[#94A3B8] mb-2 block">Description</label>
               <textarea
-                value={strategy.description}
-                onChange={(e) => updateField('description', e.target.value)}
+                {...form.register('description')}
                 rows={3}
                 className="w-full px-3 py-2 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[6px] text-[13px] text-[#F1F5F9] placeholder:text-[#475569] focus:outline-none focus:border-[#22D3EE] resize-none"
               />
+              {fieldError('description')}
             </div>
           </div>
         )}
@@ -151,7 +246,15 @@ export default function StrategyEditor({ strategy, onUpdate }: StrategyEditorPro
 
 /* ─── Sub-components ─── */
 
-function StopLossEditor({ value, onChange }: { value: StopLossConfig; onChange: (v: StopLossConfig) => void }) {
+function StopLossEditor({
+  value,
+  onChange,
+  error,
+}: {
+  value: StopLossConfig;
+  onChange: (v: StopLossConfig) => void;
+  error?: string;
+}) {
   return (
     <div className="bg-[#12121A] border border-[rgba(255,255,255,0.06)] rounded-[8px] overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
@@ -174,18 +277,28 @@ function StopLossEditor({ value, onChange }: { value: StopLossConfig; onChange: 
             value={value.value}
             onChange={(e) => onChange({ ...value, value: parseFloat(e.target.value) || 0 })}
             step={0.1}
+            min={0}
             className="flex-1 h-8 px-2 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[4px] text-[13px] text-[#F1F5F9] font-mono focus:outline-none focus:border-[#22D3EE]"
           />
           <span className="text-[11px] text-[#64748B]">
             {value.type === 'fixed' ? '%' : value.type === 'trailing' ? '% trail' : 'x ATR'}
           </span>
         </div>
+        {error && <p className="text-[11px] text-[#EF4444]">{error}</p>}
       </div>
     </div>
   );
 }
 
-function TargetEditor({ value, onChange }: { value: TargetConfig; onChange: (v: TargetConfig) => void }) {
+function TargetEditor({
+  value,
+  onChange,
+  error,
+}: {
+  value: TargetConfig;
+  onChange: (v: TargetConfig) => void;
+  error?: string;
+}) {
   const labels: Record<TargetConfig['type'], string> = {
     fixed: '% profit',
     rr: 'R:R ratio',
@@ -214,16 +327,26 @@ function TargetEditor({ value, onChange }: { value: TargetConfig; onChange: (v: 
             value={value.value}
             onChange={(e) => onChange({ ...value, value: parseFloat(e.target.value) || 0 })}
             step={0.1}
+            min={0}
             className="flex-1 h-8 px-2 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[4px] text-[13px] text-[#F1F5F9] font-mono focus:outline-none focus:border-[#22D3EE]"
           />
           <span className="text-[11px] text-[#64748B]">{labels[value.type]}</span>
         </div>
+        {error && <p className="text-[11px] text-[#EF4444]">{error}</p>}
       </div>
     </div>
   );
 }
 
-function PositionSizingEditor({ value, onChange }: { value: PositionSizingConfig; onChange: (v: PositionSizingConfig) => void }) {
+function PositionSizingEditor({
+  value,
+  onChange,
+  error,
+}: {
+  value: PositionSizingConfig;
+  onChange: (v: PositionSizingConfig) => void;
+  error?: string;
+}) {
   const labels: Record<PositionSizingConfig['type'], string> = {
     fixed: 'shares/lots',
     percent: '% of capital',
@@ -252,10 +375,12 @@ function PositionSizingEditor({ value, onChange }: { value: PositionSizingConfig
             value={value.value}
             onChange={(e) => onChange({ ...value, value: parseFloat(e.target.value) || 0 })}
             step={value.type === 'fixed' ? 1 : 0.1}
+            min={0.000001}
             className="flex-1 h-8 px-2 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[4px] text-[13px] text-[#F1F5F9] font-mono focus:outline-none focus:border-[#22D3EE]"
           />
           <span className="text-[11px] text-[#64748B]">{labels[value.type]}</span>
         </div>
+        {error && <p className="text-[11px] text-[#EF4444]">{error}</p>}
       </div>
     </div>
   );

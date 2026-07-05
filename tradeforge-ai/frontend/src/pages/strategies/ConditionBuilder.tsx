@@ -9,8 +9,22 @@ interface ConditionBuilderProps {
   onChange: (conditions: Condition[]) => void;
 }
 
-const indicatorOptions = INDICATORS.map((i) => i.shortName);
-const allOptions = [...indicatorOptions, 'Price', 'VWAP', 'BB Upper', 'BB Lower', 'BB Mid', 'MACD Line', 'MACD Signal', 'MACD Hist', 'Volume'];
+const indicatorOptions = INDICATORS.map((i) => {
+  const params = i.params.map((p) => p.default).join(',');
+  return params ? `${i.shortName}(${params})` : i.shortName;
+});
+const allOptions = [
+  ...indicatorOptions,
+  'Price',
+  'VWAP',
+  'BB Upper',
+  'BB Lower',
+  'BB Mid',
+  'MACD Line',
+  'MACD Signal',
+  'MACD Hist',
+  'Volume',
+];
 
 export default function ConditionBuilder({ title, conditions, onChange }: ConditionBuilderProps) {
   const [nextLogic, setNextLogic] = useState<'AND' | 'OR'>('AND');

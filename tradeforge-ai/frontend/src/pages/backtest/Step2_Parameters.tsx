@@ -5,6 +5,7 @@ interface Step2Props {
   config: BacktestConfig;
   onChange: (config: BacktestConfig) => void;
   onRun: () => void;
+  error?: string | null;
 }
 
 const PRESETS = [
@@ -17,14 +18,21 @@ const PRESETS = [
 
 const SEGMENTS = ['Stocks', 'Futures', 'Options', 'MCX'];
 const EXCHANGES = ['NSE', 'BSE', 'NFO', 'MCX'];
-const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1H', '1D'];
+const TIMEFRAMES = [
+  { value: '1m', label: '1m' },
+  { value: '5m', label: '5m' },
+  { value: '15m', label: '15m' },
+  { value: '30m', label: '30m' },
+  { value: '1h', label: '1H' },
+  { value: '1d', label: '1D' },
+];
 const POSITION_SIZING = [
   { value: 'fixed' as const, label: 'Fixed Qty' },
   { value: 'percent' as const, label: '% of Capital' },
   { value: 'risk' as const, label: 'Risk Based' },
 ];
 
-export default function Step2_Parameters({ config, onChange, onRun }: Step2Props) {
+export default function Step2_Parameters({ config, onChange, onRun, error }: Step2Props) {
   const setPreset = (months: number) => {
     const end = new Date();
     const start = new Date();
@@ -98,7 +106,7 @@ export default function Step2_Parameters({ config, onChange, onRun }: Step2Props
                   onChange={(e) => update('timeframe', e.target.value)}
                   className="w-full h-8 px-2 bg-[#06060A] border border-[rgba(255,255,255,0.06)] rounded-[4px] text-[12px] text-[#F1F5F9] font-mono focus:outline-none focus:border-[#22D3EE]"
                 >
-                  {TIMEFRAMES.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+                  {TIMEFRAMES.map((tf) => <option key={tf.value} value={tf.value}>{tf.label}</option>)}
                 </select>
               </div>
             </div>

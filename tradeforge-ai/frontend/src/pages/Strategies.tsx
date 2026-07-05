@@ -4,8 +4,9 @@ import { toast } from 'sonner';
 import StrategyListPanel from './strategies/StrategyListPanel';
 import StrategyToolbar from './strategies/StrategyToolbar';
 import StrategyEditor from './strategies/StrategyEditor';
+import IndicatorPalette from './strategies/IndicatorPalette';
 import { apiToSaved, savedToApiRequest } from './strategies/adapter';
-import type { SavedStrategy } from './strategies/types';
+import type { SavedStrategy, Condition } from './strategies/types';
 import {
   createStrategy,
   deleteStrategy,
@@ -22,8 +23,19 @@ export default function Strategies() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'entry' | 'exit' | 'risk' | 'params'>('entry');
 
   const selectedStrategy = strategies.find((s) => s.id === selectedId) ?? null;
+
+  const withActionLoading = (key: string, fn: () => Promise<unknown>) => async () => {
+    setActionLoading((prev) => ({ ...prev, [key]: true }));
+    try {
+      await fn();
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  };
 
   const loadStrategies = useCallback(async () => {
     setIsLoading(true);
@@ -54,6 +66,7 @@ export default function Strategies() {
 
   const handleSelect = useCallback((strategy: SavedStrategy) => {
     setSelectedId(strategy.id);
+    setActiveTab('entry');
   }, []);
 
   const handleNew = useCallback(async () => {
@@ -62,11 +75,12 @@ export default function Strategies() {
         name: 'Untitled Strategy',
         instrument: 'NIFTY50',
         segment: 'equity',
-        timeframe: '1D',
+        timeframe: '1d',
       });
       const saved = apiToSaved(apiStrategy);
       setStrategies((prev) => [saved, ...prev]);
       setSelectedId(saved.id);
+      setActiveTab('entry');
       toast.success('New strategy created');
     } catch (err) {
       const message =
@@ -83,12 +97,14 @@ export default function Strategies() {
         const apiStrategy = await updateStrategy(updated.id, savedToApiRequest(updated));
         const saved = apiToSaved(apiStrategy);
         setStrategies((prev) => prev.map((s) => (s.id === saved.id ? saved : s)));
+        return saved;
       } catch (err) {
         const message =
           err && typeof err === 'object' && 'detail' in err
             ? String((err as { detail: string }).detail)
             : 'Failed to update strategy';
         toast.error(message);
+        throw err;
       }
     },
     [],
@@ -99,111 +115,117 @@ export default function Strategies() {
       setStrategies((prev) =>
         prev.map((s) => (s.id === updated.id ? { ...updated, lastModified: 'Just now' } : s))
       );
-      // Debounce or auto-save could go here; for now we save on explicit Save
     },
     [],
   );
 
+  const validateStrategy = (strategy: SavedStrategy): string | null => {
+    if (!strategy.name.trim()) return 'Strategy name is required';
+    if (!strategy.instrument.trim()) return 'Instrument is required';
+    if (strategy.stopLoss.value < 0) return 'Stop loss value must be non-negative';
+    if (strategy.target.value < 0) return 'Target value must be non-negative';
+    if (strategy.positionSizing.value <= 0) return 'Position sizing value must be positive';
+    return null;
+  };
+
   const handleSave = useCallback(async () => {
     if (!selectedStrategy) return;
-    await persistUpdate(selectedStrategy);
-    toast.success('Strategy saved');
+    const validationError = validateStrategy(selectedStrategy);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    await withActionLoading('save', async () => {
+      await persistUpdate(selectedStrategy);
+      toast.success('Strategy saved');
+    })();
   }, [selectedStrategy, persistUpdate]);
 
   const handleDuplicate = useCallback(async () => {
     if (!selectedStrategy) return;
-    try {
+    await withActionLoading('duplicate', async () => {
       const apiStrategy = await duplicateStrategy(selectedStrategy.id);
       const saved = apiToSaved(apiStrategy);
       setStrategies((prev) => [saved, ...prev]);
       setSelectedId(saved.id);
       toast.success('Strategy duplicated');
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'detail' in err
-          ? String((err as { detail: string }).detail)
-          : 'Failed to duplicate strategy';
-      toast.error(message);
-    }
+    })();
   }, [selectedStrategy]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedStrategy) return;
-    try {
+    await withActionLoading('delete', async () => {
       await deleteStrategy(selectedStrategy.id);
       setStrategies((prev) => prev.filter((s) => s.id !== selectedStrategy.id));
       setSelectedId(null);
       toast.success('Strategy deleted');
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'detail' in err
-          ? String((err as { detail: string }).detail)
-          : 'Failed to delete strategy';
-      toast.error(message);
-    }
+    })();
   }, [selectedStrategy]);
 
   const handleBacktest = useCallback(() => {
     if (!selectedStrategy) return;
-    navigate('/app/backtest');
+    navigate(`/app/backtest?strategyId=${encodeURIComponent(selectedStrategy.id)}`);
   }, [navigate, selectedStrategy]);
 
   const handlePaperTrade = useCallback(async () => {
     if (!selectedStrategy) return;
-    try {
+    await withActionLoading('deploy', async () => {
       await deployStrategy(selectedStrategy.id, 'paper');
       setStrategies((prev) =>
         prev.map((s) => (s.id === selectedStrategy.id ? { ...s, status: 'paper' as const, lastModified: 'Just now' } : s))
       );
       toast.success('Strategy deployed to paper trading');
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'detail' in err
-          ? String((err as { detail: string }).detail)
-          : 'Failed to deploy strategy';
-      toast.error(message);
-    }
+    })();
   }, [selectedStrategy]);
 
   const handleDeploy = useCallback(async () => {
     if (!selectedStrategy) return;
-    try {
+    await withActionLoading('deploy', async () => {
       await deployStrategy(selectedStrategy.id, 'live');
       setStrategies((prev) =>
         prev.map((s) => (s.id === selectedStrategy.id ? { ...s, status: 'active' as const, lastModified: 'Just now' } : s))
       );
       toast.success('Strategy deployed to live trading');
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'detail' in err
-          ? String((err as { detail: string }).detail)
-          : 'Failed to deploy strategy';
-      toast.error(message);
-    }
+    })();
   }, [selectedStrategy]);
 
   const handleStop = useCallback(async () => {
     if (!selectedStrategy) return;
-    try {
+    await withActionLoading('stop', async () => {
       await stopStrategy(selectedStrategy.id);
       setStrategies((prev) =>
         prev.map((s) => (s.id === selectedStrategy.id ? { ...s, status: 'draft' as const, lastModified: 'Just now' } : s))
       );
       toast.success('Strategy stopped');
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'detail' in err
-          ? String((err as { detail: string }).detail)
-          : 'Failed to stop strategy';
-      toast.error(message);
-    }
+    })();
   }, [selectedStrategy]);
+
+  const handleIndicatorSelect = useCallback(
+    (indicator: { name: string; shortName: string; category: string; description: string; params: { name: string; default: number }[] }) => {
+      if (!selectedStrategy) return;
+      const params = indicator.params.length > 0 ? `(${indicator.params.map((p) => p.default).join(',')})` : '';
+      const newCondition: Condition = {
+        id: `c_${Date.now()}`,
+        indicator: `${indicator.shortName}${params}`,
+        operator: 'crosses_above',
+        value: 'Price',
+        valueType: 'indicator',
+      };
+      const field = activeTab === 'exit' ? 'exitConditions' : 'entryConditions';
+      const existing = selectedStrategy[field];
+      const conditionWithLogic = existing.length > 0 ? { ...newCondition, logic: 'AND' as const } : newCondition;
+      handleUpdate({ ...selectedStrategy, [field]: [...existing, conditionWithLogic] });
+      toast.info(`Added ${indicator.shortName} to ${field === 'entryConditions' ? 'entry' : 'exit'} rules`);
+    },
+    [activeTab, selectedStrategy, handleUpdate]
+  );
 
   return (
     <div className="flex flex-col h-full -m-4 md:-m-6">
       {/* Toolbar */}
       <StrategyToolbar
         strategy={selectedStrategy}
+        isLoading={actionLoading}
         onSave={handleSave}
         onDuplicate={handleDuplicate}
         onDelete={handleDelete}
@@ -212,7 +234,7 @@ export default function Strategies() {
         onDeploy={handleDeploy}
         onStop={handleStop}
         onNameChange={(name) => selectedStrategy && handleUpdate({ ...selectedStrategy, name })}
-        onSegmentChange={(segment) => selectedStrategy && handleUpdate({ ...selectedStrategy, segment })}
+        onSegmentChange={(segment) => selectedStrategy && handleUpdate({ ...selectedStrategy, segment: segment as SavedStrategy['segment'] })}
       />
 
       {/* Loading / Error states */}
@@ -247,9 +269,17 @@ export default function Strategies() {
             onNew={handleNew}
           />
 
+          {/* Indicator palette */}
+          <IndicatorPalette onSelect={handleIndicatorSelect} />
+
           {/* Strategy editor */}
           <div className="flex-1 flex overflow-hidden">
-            <StrategyEditor strategy={selectedStrategy} onUpdate={handleUpdate} />
+            <StrategyEditor
+              strategy={selectedStrategy}
+              onUpdate={handleUpdate}
+              activeTab={activeTab}
+              onActiveTabChange={setActiveTab}
+            />
           </div>
         </div>
       )}

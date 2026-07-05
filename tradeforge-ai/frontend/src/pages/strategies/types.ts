@@ -1,11 +1,13 @@
 export type StrategyStatus = 'active' | 'paper' | 'backtesting' | 'draft';
+export type Segment = 'Stocks' | 'Futures' | 'Options' | 'MCX';
+export type TimeFrame = '1m' | '5m' | '15m' | '30m' | '1h' | '1d';
 
 export interface SavedStrategy {
   id: string;
   name: string;
   description: string;
   instrument: string;
-  segment: string;
+  segment: Segment;
   status: StrategyStatus;
   lastModified: string;
   entryConditions: Condition[];
@@ -13,7 +15,7 @@ export interface SavedStrategy {
   stopLoss: StopLossConfig;
   target: TargetConfig;
   positionSizing: PositionSizingConfig;
-  timeframe: string;
+  timeframe: TimeFrame;
 }
 
 export interface Condition {
@@ -66,7 +68,13 @@ export const INDICATORS: IndicatorMeta[] = [
   { name: 'Parabolic SAR', shortName: 'PSAR', category: 'trend', description: 'Trailing stop and reverse', params: [{ name: 'Step', default: 0.02 }, { name: 'Max', default: 0.2 }] },
 ];
 
-export const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1H', '1D'];
+export const TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '1d'] as const;
+
+export function timeframeLabel(tf: string): string {
+  if (tf === '1h') return '1H';
+  if (tf === '1d') return '1D';
+  return tf.toUpperCase();
+}
 
 export const NIFTY50_STOCKS = [
   'RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'HINDUNILVR', 'SBIN', 'BHARTIARTL',
@@ -77,6 +85,8 @@ export const NIFTY50_STOCKS = [
   'APOLLOHOSP', 'TATACONSUM', 'HINDALCO', 'ZOMATO', 'INDUSINDBK', 'UPL', 'TATASTEEL',
   'BPCL', 'DIVISLAB', 'SBILIFE', 'HAVELLS',
 ];
+
+export const SEGMENTS = ['Stocks', 'Futures', 'Options', 'MCX'] as const;
 
 export const OPERATORS = [
   { value: 'crosses_above', label: 'crosses above' },

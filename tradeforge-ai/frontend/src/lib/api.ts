@@ -156,7 +156,7 @@ export async function logout(): Promise<void> {
 
 export async function fetchStrategies(status?: string): Promise<StrategyListResponse> {
   const params = status ? `?status=${encodeURIComponent(status)}` : '';
-  return request<StrategyListResponse>(`/api/v1/strategies${params}`);
+  return request<StrategyListResponse>(`/api/v1/strategies/${params}`);
 }
 
 export async function fetchStrategy(id: string): Promise<Strategy> {
@@ -164,7 +164,7 @@ export async function fetchStrategy(id: string): Promise<Strategy> {
 }
 
 export async function createStrategy(strategy: StrategyCreateRequest): Promise<Strategy> {
-  return request<Strategy>('/api/v1/strategies', {
+  return request<Strategy>('/api/v1/strategies/', {
     method: 'POST',
     body: JSON.stringify(strategy),
   });
@@ -218,7 +218,7 @@ export async function runBacktest(payload: BacktestRequest): Promise<BacktestRun
 
 export async function fetchBacktests(strategyId?: string): Promise<BacktestListResponse> {
   const params = strategyId ? `?strategy_id=${encodeURIComponent(strategyId)}` : '';
-  return request<BacktestListResponse>(`/api/v1/backtest${params}`);
+  return request<BacktestListResponse>(`/api/v1/backtest/${params}`);
 }
 
 export async function fetchBacktest(id: string): Promise<BacktestRun> {

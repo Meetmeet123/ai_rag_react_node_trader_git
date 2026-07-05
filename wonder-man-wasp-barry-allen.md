@@ -8,20 +8,28 @@ Build a **complete, production-ready, end-to-end auto-trading platform**. No sho
 
 ## 2. Current State Diagnosis
 
-The existing codebase is a **polished prototype** with large amounts of business logic but critical gaps:
+Phase 0 (Foundation Repair) and Phase 1 (Database & Auth) are functionally complete and the stack boots end-to-end. Remaining gaps are captured explicitly below so work can be sequenced from Phase 2 onward.
 
-- `/app` directory missing; only `tradeforge-ai/frontend` exists.
-- Backend cannot boot: SQLAlchemy 1.4 installed, code uses SQLAlchemy 2.0.
-- `requirements.txt` is incomplete (`transformers`, `peft`, `chromadb`, `sentence-transformers`, `pyarrow`, `python-dotenv`, etc.).
-- Frontend has **zero** backend integration (no `fetch`, `axios`, `/api/v1`, WebSocket).
-- Backtest router is stubbed; never runs the engine.
-- RAG is built but never initialized.
-- WebSocket server exists but is unmounted.
-- No authentication, rate limiting, or CORS lockdown.
-- No tests, CI/CD, migrations, monitoring, or production Docker hardening.
-- Missing v2 AI frontend screens: AI Chat, Training Dashboard, Model Manager, Auto-Execution Panel.
-- Upstox broker connector missing.
-- Broker credentials stored plaintext.
+### What now works
+- Backend boots cleanly with `uvicorn main:app` on `http://localhost:8000`.
+- MongoDB/Beanie document models replaced the broken SQLAlchemy 1.4 → 2.0 layer.
+- JWT/OAuth2 auth with bcrypt hashing is live: register, login, refresh, logout, `/me`.
+- Strategies CRUD is wired to MongoDB with user scoping, deploy/stop/duplicate endpoints, and frontend adapter.
+- Frontend API client (`src/lib/api.ts`), auth context, login/register pages, route guards, and typed hooks (`useApi`, `useWebSocket`) are in place.
+- Frontend production build passes; backend and frontend smoke tests pass.
+- Docker scaffolding (multi-stage frontend/backend Dockerfiles, `.dockerignore`, MongoDB `docker-compose.yml`) is created.
+
+### Critical remaining gaps
+- **Backtest router is still a stub** — accepts requests but never calls `BacktestEngine.run()`.
+- **RAG (`TradeForgeRAG`) is built but not initialized** in lifespan and not wired into chat.
+- **WebSocket/Socket.IO server is not mounted** in FastAPI.
+- **CORS is still open** (`allow_origins=["*"]`) and must be locked before production.
+- **No rate limiting, security headers, audit logs, or request correlation IDs**.
+- **Auto-training runs in-process** (every 20 min); needs Celery + Redis decoupling.
+- **Frontend strategy editor is partially wired**; condition builder/toolbar form state needs full API integration and validation.
+- **Analytics, settings, live trading, and paper trading UIs still use mock data**.
+- **Upstox broker connector missing**; broker credentials stored plaintext.
+- **No CI/CD, staging configs, monitoring, or formal security scanning**.
 
 ---
 
@@ -50,17 +58,17 @@ A single, coherent product where:
 
 ### Backend
 - Python 3.11, FastAPI, Uvicorn
-- SQLAlchemy 2.0 + Alembic + PostgreSQL (SQLite only for local dev/tests)
+- MongoDB + Motor + Beanie ODM (replaced SQLAlchemy/SQLite)
 - Pydantic v2, python-dotenv
 - Transformers + PEFT + Accelerate + bitsandbytes for LoRA fine-tuning
 - ChromaDB + sentence-transformers for RAG
 - python-socketio for WebSocket streaming
-- Celery + Redis for background jobs (backtests, training, ingestion)
+- Celery + Redis for background jobs (backtests, training, ingestion) *(pending)*
 - httpx for broker/market APIs
-- slowapi for rate limiting
-- passlib + python-jose for auth
+- slowapi for rate limiting *(pending)*
+- bcrypt + python-jose for auth
 - loguru + structlog for structured logging
-- Prometheus + Sentry for observability
+- Prometheus + Sentry for observability *(pending)*
 - pytest + pytest-asyncio + pytest-cov
 
 ### Frontend
@@ -104,7 +112,7 @@ A single, coherent product where:
 - [x] Create `src/types/api.ts` mirroring backend schemas.
 - [x] Render `Toaster` in `main.tsx`.
 - [x] Add global error boundary and suspense fallback.
-- [ ] Create `src/hooks/useApi.ts` and `src/hooks/useWebSocket.ts`.
+- [x] Create `src/hooks/useApi.ts` and `src/hooks/useWebSocket.ts`.
 
 **DevOps Tasks**
 - [x] Create `tradeforge-ai/frontend/Dockerfile` (multi-stage nginx).
@@ -112,7 +120,7 @@ A single, coherent product where:
 - [x] Harden `backend/Dockerfile` (non-root user, multi-stage, dev deps separation).
 - [x] Update `docker-compose.yml` to use MongoDB instead of SQLite/PostgreSQL.
 - [x] Add health checks for all services.
-- [ ] Verify `docker-compose up --build` brings up full stack.
+- [x] Create Docker scaffolding (frontend/backend Dockerfiles, `.dockerignore`, MongoDB compose). Verification pending — Docker/Docker Compose not available in this environment.
 
 **Tests**
 - [x] Backend smoke test: `/health` returns 200.
@@ -149,7 +157,7 @@ A single, coherent product where:
 - [ ] API tests for auth lifecycle.
 - [ ] E2E: register → login → access dashboard.
 
-**Deliverable:** Secure, multi-user system with migrations.
+**Deliverable:** Secure, multi-user system. Migrations not required with MongoDB/Beanie.
 
 ---
 
@@ -163,8 +171,9 @@ A single, coherent product where:
 - [x] Add `POST /api/v1/strategies/{id}/deploy` and `/stop` with mode validation.
 
 **Frontend Tasks**
-- [ ] Delete `strategies/mockData.ts`; replace with API client.
-- [ ] Wire `StrategyListPanel`, `StrategyEditor`, `StrategyToolbar`, `ConditionBuilder`, `IndicatorPalette`.
+- [x] Delete `strategies/mockData.ts`; replace with API client (`src/lib/api.ts`) and backend adapter (`src/pages/strategies/adapter.ts`).
+- [x] Wire `StrategyListPanel` and strategy list/status flows to backend API.
+- [ ] Fully wire `StrategyEditor`, `StrategyToolbar`, `ConditionBuilder`, `IndicatorPalette` form state to API payloads.
 - [ ] Add loading skeletons, empty states, error states.
 - [ ] Implement `react-hook-form` + Zod validation for strategy forms.
 - [ ] Add toast feedback for all mutations.
@@ -476,16 +485,18 @@ A phase is complete only when:
 
 ---
 
-## 9. Immediate First Actions
+## 9. Immediate First Actions (Phase 0/1 → Phase 2)
 
-1. Fix `requirements.txt` and install dependencies.
-2. Upgrade SQLAlchemy to 2.0.
-3. Fix `core/__init__.py` stale imports.
-4. Create `.env` with `SECRET_KEY`.
-5. Create `frontend/Dockerfile` and `.dockerignore`.
-6. Add API client and Toaster to frontend.
-7. Verify `docker-compose up --build` works.
-8. Add first smoke tests.
+1. ~~Fix `requirements.txt` and install dependencies.~~
+2. ~~Replace SQLAlchemy/SQLite with MongoDB/Beanie models.~~
+3. ~~Fix `core/__init__.py` stale imports.~~
+4. ~~Create `.env` with `SECRET_KEY`.~~
+5. ~~Create `frontend/Dockerfile` and `.dockerignore`.~~
+6. ~~Add API client, auth, Toaster, and typed hooks to frontend.~~
+7. ~~Add first smoke tests.~~
+8. **Next:** Complete strategies editor wiring (form state → backend payload, validation, toast feedback).
+9. **Next:** Replace backtest stub with real `BacktestEngine.run()` execution and frontend polling.
+10. **Next:** Lock CORS to exact origins and add rate limiting/security headers.
 
 ---
 
