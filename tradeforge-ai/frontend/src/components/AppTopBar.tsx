@@ -1,10 +1,29 @@
-import { Search, Bell, Circle } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Search, Bell, Circle, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AppTopBar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const initials = user?.full_name
+    ? user.full_name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : user?.username?.slice(0, 2).toUpperCase() || 'T';
+
   return (
-    <header
-      className="h-12 shrink-0 bg-[#0A0A0F] border-b border-[rgba(255,255,255,0.06)] flex items-center px-4 z-40"
-    >
+    <header className="h-12 shrink-0 bg-[#0A0A0F] border-b border-[rgba(255,255,255,0.06)] flex items-center px-4 z-40">
       <div className="flex items-center justify-between w-full">
         {/* Left: Logo */}
         <div className="flex items-center gap-2 shrink-0">
@@ -43,9 +62,51 @@ export default function AppTopBar() {
             <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#EF4444] rounded-full" />
           </button>
 
-          {/* User Avatar */}
-          <div className="w-7 h-7 rounded-full bg-[#22D3EE] flex items-center justify-center text-[#030305] text-[11px] font-bold cursor-pointer">
-            T
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="w-7 h-7 rounded-full bg-[#22D3EE] flex items-center justify-center text-[#030305] text-[11px] font-bold cursor-pointer hover:brightness-110 transition-all"
+              title={user?.username || 'User'}
+            >
+              {initials}
+            </button>
+
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-9 z-50 w-56 bg-[#12121A] border border-[rgba(255,255,255,0.08)] rounded-[8px] shadow-xl py-2">
+                  <div className="px-3 py-2 border-b border-[rgba(255,255,255,0.06)]">
+                    <p className="text-[13px] font-medium text-[#F1F5F9]">
+                      {user?.full_name || user?.username || 'Trader'}
+                    </p>
+                    <p className="text-[11px] text-[#64748B]">{user?.email}</p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/app/settings');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#94A3B8] hover:bg-[rgba(255,255,255,0.04)] hover:text-[#F1F5F9] transition-colors"
+                  >
+                    <User size={14} />
+                    Settings
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#EF4444] hover:bg-[rgba(239,68,68,0.08)] transition-colors"
+                  >
+                    <LogOut size={14} />
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

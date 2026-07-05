@@ -209,10 +209,10 @@ export async function duplicateStrategy(id: string): Promise<Strategy> {
 // Backtest endpoints
 // ---------------------------------------------------------------------------
 
-export async function runBacktest(request: BacktestRequest): Promise<BacktestRun> {
+export async function runBacktest(payload: BacktestRequest): Promise<BacktestRun> {
   return request<BacktestRun>('/api/v1/backtest/run', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify(payload),
   });
 }
 

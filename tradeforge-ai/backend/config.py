@@ -6,7 +6,7 @@ All sensitive values (API keys, secrets) are read from environment variables.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 
 class Settings(BaseSettings):
@@ -149,12 +149,11 @@ class Settings(BaseSettings):
         description="Serialized model artefacts"
     )
 
-    class Config:
-        """Pydantic settings configuration."""
-
-        env_file = "../.env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file="../.env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
 
 
 # Global settings singleton — import this instance everywhere.

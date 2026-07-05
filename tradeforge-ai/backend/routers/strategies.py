@@ -65,8 +65,8 @@ class StrategyResponse(BaseModel):
     status: str
     is_ai_generated: bool
     backtest_results: Optional[dict]
-    entry_conditions: Optional[dict]
-    exit_conditions: Optional[dict]
+    entry_conditions: Optional[Any]
+    exit_conditions: Optional[Any]
     stop_loss_type: Optional[str]
     stop_loss_value: Optional[float]
     target_type: Optional[str]

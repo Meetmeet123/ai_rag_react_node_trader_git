@@ -16,6 +16,7 @@ interface StrategyToolbarProps {
   onBacktest: () => void;
   onPaperTrade: () => void;
   onDeploy: () => void;
+  onStop?: () => void;
   onNameChange: (name: string) => void;
   onSegmentChange: (segment: string) => void;
 }
@@ -30,6 +31,7 @@ export default function StrategyToolbar({
   onBacktest,
   onPaperTrade,
   onDeploy,
+  onStop,
   onNameChange,
   onSegmentChange,
 }: StrategyToolbarProps) {
@@ -100,13 +102,23 @@ export default function StrategyToolbar({
         Save
       </button>
 
-      <button
-        onClick={onDeploy}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#22D3EE] text-[#030305] rounded-[4px] text-[12px] font-semibold hover:brightness-110 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] active:scale-[0.98]"
-      >
-        <Rocket size={12} />
-        Deploy
-      </button>
+      {strategy.status === 'active' || strategy.status === 'paper' ? (
+        <button
+          onClick={onStop}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EF4444] text-[#FFFFFF] rounded-[4px] text-[12px] font-semibold hover:brightness-110 transition-all hover:shadow-[0_0_20px_rgba(239,68,68,0.15)] active:scale-[0.98]"
+        >
+          <Rocket size={12} />
+          Stop
+        </button>
+      ) : (
+        <button
+          onClick={onDeploy}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#22D3EE] text-[#030305] rounded-[4px] text-[12px] font-semibold hover:brightness-110 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] active:scale-[0.98]"
+        >
+          <Rocket size={12} />
+          Deploy
+        </button>
+      )}
 
       <div className="w-px h-5 bg-[rgba(255,255,255,0.06)]" />
 
