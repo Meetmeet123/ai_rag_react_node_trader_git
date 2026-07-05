@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  # Backend API + WebSocket Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tradeforge-backend
+    ports:
+      - "8000:8000"
+      - "8765:8765"
+    environment:
+      - DATABASE_URL=sqlite:///data/tradeforge.db
+      - TRAINING_INTERVAL_MINUTES=20
+      - DEBUG=false
+      # Add broker API keys in .env file
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./strategies:/app/strategies
+      - ./training/checkpoints:/app/training/checkpoints
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend (React SPA)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tradeforge-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Redis (for caching + pub/sub)
+  redis:
+    image: redis:7-alpine
+    container_name: tradeforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
