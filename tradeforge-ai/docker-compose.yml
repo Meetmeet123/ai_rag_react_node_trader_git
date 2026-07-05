@@ -11,10 +11,10 @@ services:
       - "8000:8000"
       - "8765:8765"
     environment:
-      - DATABASE_URL=sqlite:///data/tradeforge.db
+      - MONGODB_URI=mongodb://mongo:27017/tradeforge
+      - MONGODB_DB_NAME=tradeforge
       - TRAINING_INTERVAL_MINUTES=20
       - DEBUG=false
-      # Add broker API keys in .env file
     env_file:
       - .env
     volumes:
@@ -23,6 +23,11 @@ services:
       - ./strategies:/app/strategies
       - ./training/checkpoints:/app/training/checkpoints
     restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -45,6 +50,22 @@ services:
       - backend
     restart: unless-stopped
 
+  # MongoDB (primary database)
+  mongo:
+    image: mongo:7-jammy
+    container_name: tradeforge-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # Redis (for caching + pub/sub)
   redis:
     image: redis:7-alpine
@@ -54,6 +75,12 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
+  mongo_data:
   redis_data:

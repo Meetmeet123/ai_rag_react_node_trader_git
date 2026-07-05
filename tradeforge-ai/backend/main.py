@@ -235,8 +235,9 @@ app.add_middleware(
 # Include routers
 # ---------------------------------------------------------------------------
 
-from routers import llm, strategies, backtest, train, models, execute, market
+from routers import auth, llm, strategies, backtest, train, models, execute, market
 
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(llm.router, prefix="/api/v1/llm", tags=["LLM"])
 app.include_router(strategies.router, prefix="/api/v1/strategies", tags=["Strategies"])
 app.include_router(backtest.router, prefix="/api/v1/backtest", tags=["Backtest"])

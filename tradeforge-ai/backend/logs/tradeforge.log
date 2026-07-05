@@ -1,0 +1,43 @@
+2026-07-06 02:29:52 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 02:29:52 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 02:29:52 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 02:29:52 | ERROR    | main:lifespan:72 - Database initialization failed: MotorDatabase object is not callable. If you meant to call the 'append_metadata' method on a AsyncIOMotorClient object it is failing because no such method exists.
+2026-07-06 02:30:42 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 02:30:42 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 02:30:42 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 02:30:51 | ERROR    | main:lifespan:72 - Database initialization failed: MotorDatabase object is not callable. If you meant to call the 'append_metadata' method on a AsyncIOMotorClient object it is failing because no such method exists.
+2026-07-06 02:30:56 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 02:30:56 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 02:30:56 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 02:30:56 | ERROR    | main:lifespan:72 - Database initialization failed: MotorDatabase object is not callable. If you meant to call the 'append_metadata' method on a AsyncIOMotorClient object it is failing because no such method exists.
+2026-07-06 02:31:33 | INFO     | main:lifespan:63 - ============================================================
+2026-07-06 02:31:33 | INFO     | main:lifespan:64 -   Starting TradeForge AI v2.0.0
+2026-07-06 02:31:33 | INFO     | main:lifespan:65 - ============================================================
+2026-07-06 02:31:43 | INFO     | main:lifespan:70 - Database initialized successfully
+2026-07-06 02:32:17 | INFO     | core.llm_engine:__init__:359 - LLMEngine initialising — base_model=microsoft/DialoGPT-medium, device=cpu
+2026-07-06 02:32:17 | INFO     | core.llm_engine:_load_model:384 - Loading tokenizer from microsoft/DialoGPT-medium ...
+2026-07-06 02:32:21 | INFO     | core.llm_engine:_load_model:413 - Loading base model microsoft/DialoGPT-medium ...
+2026-07-06 02:33:03 | WARNING  | core.llm_engine:_load_model:435 - No LoRA checkpoint found — using base model weights only.
+2026-07-06 02:33:03 | INFO     | core.llm_engine:_load_model:441 - Model loaded successfully.
+2026-07-06 02:33:03 | INFO     | main:lifespan:87 - LLM Engine initialized
+2026-07-06 02:33:03 | INFO     | core.backtest_engine:__init__:326 - BacktestEngine initialised | capital=1000000.0 sizing=fixed_qty sl=1.0% target=2.0%
+2026-07-06 02:33:03 | INFO     | main:lifespan:90 - Backtest Engine initialized
+2026-07-06 02:33:03 | INFO     | main:lifespan:93 - Paper Broker initialized
+2026-07-06 02:33:03 | INFO     | core.risk_manager:__init__:183 - RiskManager initialised | daily_loss_limit=20000.0 max_positions=10 max_exposure_trade=10.0% max_exposure_overall=50.0%
+2026-07-06 02:33:03 | INFO     | main:lifespan:99 - Risk Manager initialized
+2026-07-06 02:33:03 | INFO     | core.model_registry:_load_registry:483 - No existing registry found — starting fresh
+2026-07-06 02:33:03 | INFO     | core.model_registry:__init__:196 - ModelRegistry loaded — 0 versions, active=None
+2026-07-06 02:33:03 | INFO     | main:lifespan:102 - Model Registry initialized
+2026-07-06 02:33:03 | INFO     | core.market_data.ingestor:__init__:113 - MarketDataIngestor initialised — cache dir: ./data/historical
+2026-07-06 02:33:03 | INFO     | main:lifespan:105 - Market Data Ingestor initialized
+2026-07-06 02:33:03 | INFO     | training.dataset_builder:__init__:105 - StrategyDatasetBuilder initialised — max_length=512, val_split=0.1
+2026-07-06 02:33:03 | INFO     | main:lifespan:108 - Dataset Builder initialized
+2026-07-06 02:33:03 | INFO     | core.execution_engine:__init__:189 - ExecutionEngine initialised | mode=paper broker=paper
+2026-07-06 02:33:03 | INFO     | main:lifespan:117 - Execution Engine initialized (paper mode)
+2026-07-06 02:33:03 | INFO     | core.auto_trainer:__init__:266 - AutoTrainingPipeline initialised — interval=20min, min_samples=50
+2026-07-06 02:33:03 | INFO     | main:lifespan:129 - Auto-Training Pipeline initialized (20-min interval)
+2026-07-06 02:33:03 | INFO     | main:lifespan:147 - Router singletons injected
+2026-07-06 02:33:03 | INFO     | core.auto_trainer:start:296 - Auto-training started — next run in 20 minutes
+2026-07-06 02:33:03 | INFO     | main:lifespan:152 - Auto-training scheduler started
+2026-07-06 02:33:03 | INFO     | main:lifespan:156 - All services initialized successfully
+2026-07-06 02:33:03 | INFO     | main:lifespan:157 - TradeForge AI is ready

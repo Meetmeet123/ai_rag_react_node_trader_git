@@ -14,12 +14,10 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
-from sqlalchemy.orm import Session
 
-from database.connection import get_db_session
 from core.llm_engine import LLMEngine, StrategyOutput
 from core.strategy_parser import NLParser, CodeGenerator, StrategyValidator
 

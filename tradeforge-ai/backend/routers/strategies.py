@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from bson import ObjectId
+from beanie import PydanticObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -104,10 +104,10 @@ class StrategyActionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _object_id(id_str: str) -> ObjectId:
-    """Convert a string to an ObjectId or raise a 400 error."""
+def _object_id(id_str: str) -> PydanticObjectId:
+    """Convert a string to a PydanticObjectId or raise a 400 error."""
     try:
-        return ObjectId(id_str)
+        return PydanticObjectId(id_str)
     except InvalidId as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

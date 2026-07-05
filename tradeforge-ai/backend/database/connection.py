@@ -86,6 +86,15 @@ async def init_db() -> None:
     else:
         db = client.get_default_database()
 
+    # Workaround for a motor/pymongo API mismatch where `append_metadata`
+    # is callable but raises at runtime. Make it a no-op for Beanie's init.
+    original_append_metadata = getattr(client, "append_metadata", None)
+    if original_append_metadata is not None and callable(original_append_metadata):
+        try:
+            original_append_metadata({"name": "beanie-test"})
+        except TypeError:
+            client.append_metadata = lambda *_args, **_kwargs: None
+
     await init_beanie(database=db, document_models=DOCUMENT_MODELS)
 
 

@@ -14,13 +14,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from beanie import PydanticObjectId
+from bson.errors import InvalidId
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
-from sqlalchemy.orm import Session
 
-from database.connection import get_db_session
 from database.models import BacktestRun, Strategy
+from routers.auth import get_current_user_optional, UserDocument
 
 router = APIRouter()
 
@@ -33,7 +34,7 @@ router = APIRouter()
 class BacktestRequest(BaseModel):
     """Request body for running a backtest."""
 
-    strategy_id: int = Field(..., description="ID of the strategy to backtest")
+    strategy_id: str = Field(..., description="ID of the strategy to backtest")
     start_date: datetime = Field(..., description="Backtest start date")
     end_date: datetime = Field(..., description="Backtest end date")
     initial_capital: float = Field(default=1_000_000.0, gt=0, description="Starting capital in INR")
@@ -51,8 +52,8 @@ class BacktestRequest(BaseModel):
 class BacktestSummaryResponse(BaseModel):
     """Summary of a backtest run (for list view)."""
 
-    id: int
-    strategy_id: Optional[int]
+    id: str
+    strategy_id: Optional[str]
     strategy_name: Optional[str]
     start_date: Optional[str]
     end_date: Optional[str]
@@ -68,15 +69,12 @@ class BacktestSummaryResponse(BaseModel):
     created_at: Optional[str]
     completed_at: Optional[str]
 
-    class Config:
-        from_attributes = True
-
 
 class BacktestDetailResponse(BaseModel):
     """Detailed backtest results."""
 
-    id: int
-    strategy_id: Optional[int]
+    id: str
+    strategy_id: Optional[str]
     strategy_name: Optional[str]
     start_date: Optional[str]
     end_date: Optional[str]
@@ -110,16 +108,13 @@ class BacktestDetailResponse(BaseModel):
     created_at: Optional[str]
     completed_at: Optional[str]
 
-    class Config:
-        from_attributes = True
-
 
 class BacktestListResponse(BaseModel):
     """Paginated backtest list response."""
 
     backtests: List[BacktestSummaryResponse]
     total: int
-    strategy_id_filter: Optional[int] = None
+    strategy_id_filter: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -127,11 +122,22 @@ class BacktestListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _object_id(id_str: str) -> PydanticObjectId:
+    """Convert a string to a PydanticObjectId or raise a 400 error."""
+    try:
+        return PydanticObjectId(id_str)
+    except InvalidId as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid ID format: {id_str}",
+        ) from exc
+
+
 def _backtest_summary_to_dict(bt: BacktestRun, strategy_name: Optional[str] = None) -> Dict[str, Any]:
     """Convert BacktestRun to summary dict."""
     return {
-        "id": bt.id,
-        "strategy_id": bt.strategy_id,
+        "id": str(bt.id),
+        "strategy_id": str(bt.strategy_id) if bt.strategy_id else None,
         "strategy_name": strategy_name,
         "start_date": bt.start_date.isoformat() if bt.start_date else None,
         "end_date": bt.end_date.isoformat() if bt.end_date else None,
@@ -152,8 +158,8 @@ def _backtest_summary_to_dict(bt: BacktestRun, strategy_name: Optional[str] = No
 def _backtest_detail_to_dict(bt: BacktestRun, strategy_name: Optional[str] = None) -> Dict[str, Any]:
     """Convert BacktestRun to full detail dict."""
     return {
-        "id": bt.id,
-        "strategy_id": bt.strategy_id,
+        "id": str(bt.id),
+        "strategy_id": str(bt.strategy_id) if bt.strategy_id else None,
         "strategy_name": strategy_name,
         "start_date": bt.start_date.isoformat() if bt.start_date else None,
         "end_date": bt.end_date.isoformat() if bt.end_date else None,
@@ -202,7 +208,7 @@ def _backtest_detail_to_dict(bt: BacktestRun, strategy_name: Optional[str] = Non
 async def run_backtest(
     request: BacktestRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db_session),
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> BacktestDetailResponse:
     """
     Run backtest for a strategy.
@@ -211,24 +217,26 @@ async def run_backtest(
     with a 'running' status. Poll GET /{id} to check completion.
     """
     # Validate strategy exists
-    strategy = db.query(Strategy).filter(Strategy.id == request.strategy_id).first()
+    strategy = await Strategy.get(_object_id(request.strategy_id))
     if not strategy:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Strategy with ID {request.strategy_id} not found",
         )
 
+    if current_user is not None and strategy.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
     # Create backtest record
     backtest_run = BacktestRun(
-        strategy_id=request.strategy_id,
+        user_id=current_user.id if current_user else None,
+        strategy_id=_object_id(request.strategy_id),
         start_date=request.start_date,
         end_date=request.end_date,
         initial_capital=request.initial_capital,
         status="running",
     )
-    db.add(backtest_run)
-    db.commit()
-    db.refresh(backtest_run)
+    await backtest_run.insert()
 
     logger.info(
         "Backtest started id={} strategy_id={} capital={}",
@@ -251,27 +259,30 @@ async def run_backtest(
     description="List all backtest runs with optional strategy filter.",
 )
 async def list_backtests(
-    strategy_id: Optional[int] = None,
-    db: Session = Depends(get_db_session),
+    strategy_id: Optional[str] = None,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> BacktestListResponse:
     """List backtest runs, optionally filtered by strategy ID."""
-    query = db.query(BacktestRun)
+    query = BacktestRun.find()
+
+    if current_user is not None:
+        query = query.find(BacktestRun.user_id == current_user.id)
 
     if strategy_id:
-        query = query.filter(BacktestRun.strategy_id == strategy_id)
+        query = query.find(BacktestRun.strategy_id == _object_id(strategy_id))
 
-    backtests = query.order_by(BacktestRun.created_at.desc()).all()
+    backtests = await query.sort(-BacktestRun.created_at).to_list()
 
-    # Fetch strategy names in one query
+    # Fetch strategy names
     strategy_ids = {bt.strategy_id for bt in backtests if bt.strategy_id}
     strategies = (
-        db.query(Strategy.id, Strategy.name).filter(Strategy.id.in_(strategy_ids)).all()
+        await Strategy.find({"_id": {"$in": list(strategy_ids)}}).to_list()
         if strategy_ids else []
     )
-    strategy_names = {s.id: s.name for s in strategies}
+    strategy_names = {str(s.id): s.name for s in strategies}
 
     backtest_dicts = [
-        BacktestSummaryResponse(**_backtest_summary_to_dict(bt, strategy_names.get(bt.strategy_id)))
+        BacktestSummaryResponse(**_backtest_summary_to_dict(bt, strategy_names.get(str(bt.strategy_id))))
         for bt in backtests
     ]
 
@@ -289,20 +300,23 @@ async def list_backtests(
     description="Get detailed results of a specific backtest run.",
 )
 async def get_backtest(
-    backtest_id: int,
-    db: Session = Depends(get_db_session),
+    backtest_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> BacktestDetailResponse:
     """Get backtest results by ID."""
-    backtest = db.query(BacktestRun).filter(BacktestRun.id == backtest_id).first()
+    backtest = await BacktestRun.get(_object_id(backtest_id))
     if not backtest:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Backtest with ID {backtest_id} not found",
         )
 
+    if current_user is not None and backtest.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
     strategy_name = None
     if backtest.strategy_id:
-        strategy = db.query(Strategy).filter(Strategy.id == backtest.strategy_id).first()
+        strategy = await Strategy.get(backtest.strategy_id)
         if strategy:
             strategy_name = strategy.name
 
@@ -315,16 +329,19 @@ async def get_backtest(
     description="Get equity curve data points for charting.",
 )
 async def get_equity_curve(
-    backtest_id: int,
-    db: Session = Depends(get_db_session),
+    backtest_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> Dict[str, Any]:
     """Get equity curve data points for chart rendering."""
-    backtest = db.query(BacktestRun).filter(BacktestRun.id == backtest_id).first()
+    backtest = await BacktestRun.get(_object_id(backtest_id))
     if not backtest:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Backtest with ID {backtest_id} not found",
         )
+
+    if current_user is not None and backtest.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     return {
         "backtest_id": backtest_id,
@@ -341,16 +358,19 @@ async def get_equity_curve(
     description="Get detailed trade log from a backtest run.",
 )
 async def get_trade_log(
-    backtest_id: int,
-    db: Session = Depends(get_db_session),
+    backtest_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> Dict[str, Any]:
     """Get detailed trade log from a backtest run."""
-    backtest = db.query(BacktestRun).filter(BacktestRun.id == backtest_id).first()
+    backtest = await BacktestRun.get(_object_id(backtest_id))
     if not backtest:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Backtest with ID {backtest_id} not found",
         )
+
+    if current_user is not None and backtest.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
 
     return {
         "backtest_id": backtest_id,
@@ -368,19 +388,21 @@ async def get_trade_log(
     description="Delete a backtest run by ID.",
 )
 async def delete_backtest(
-    backtest_id: int,
-    db: Session = Depends(get_db_session),
+    backtest_id: str,
+    current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> Dict[str, Any]:
     """Delete a backtest run."""
-    backtest = db.query(BacktestRun).filter(BacktestRun.id == backtest_id).first()
+    backtest = await BacktestRun.get(_object_id(backtest_id))
     if not backtest:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Backtest with ID {backtest_id} not found",
         )
 
-    db.delete(backtest)
-    db.commit()
+    if current_user is not None and backtest.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+
+    await backtest.delete()
 
     logger.info("Deleted backtest id={}", backtest_id)
 

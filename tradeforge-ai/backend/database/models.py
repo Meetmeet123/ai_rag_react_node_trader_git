@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, EmailStr, Field
-from bson import ObjectId
+from beanie import PydanticObjectId
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ class User(TimestampedDocument):
 class Account(TimestampedDocument):
     """Extended account/profile data for a user."""
 
-    user_id: ObjectId
+    user_id: PydanticObjectId
     phone: Optional[str] = None
     timezone: str = "Asia/Kolkata"
     language: str = "en"
