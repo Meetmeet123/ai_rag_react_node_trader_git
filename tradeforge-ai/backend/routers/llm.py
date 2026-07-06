@@ -12,12 +12,14 @@ LLM API Routes
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
 
+import rag_service
 from core.llm_engine import LLMEngine, StrategyOutput
 from core.strategy_parser import NLParser, CodeGenerator, StrategyValidator
 
@@ -120,6 +122,7 @@ class LLMHealthResponse(BaseModel):
 )
 async def generate_strategy(
     request: StrategyPromptRequest,
+    background_tasks: BackgroundTasks,
 ) -> StrategyResponse:
     """
     Generate trading strategy from natural language.
@@ -128,8 +131,27 @@ async def generate_strategy(
     """
     try:
         llm_engine = LLMEngine()
+
+        # Augment prompt with RAG-retrieved context when available.
+        generation_prompt = request.prompt
+        try:
+            rag = rag_service.get_rag_or_none()
+            if rag is not None:
+                context = await rag.get_strategy_context(
+                    request.prompt,
+                    request.instrument,
+                    request.segment,
+                )
+                generation_prompt = rag.build_rag_prompt(
+                    "strategy_generation",
+                    request.prompt,
+                    context,
+                )
+        except Exception as exc:
+            logger.warning("RAG strategy context retrieval failed: {}", exc)
+
         strategy_output: StrategyOutput = llm_engine.generate_strategy(
-            prompt=request.prompt
+            prompt=generation_prompt
         )
 
         # Also generate executable code via the strategy parser + code generator
@@ -148,6 +170,32 @@ async def generate_strategy(
             "errors": validation_result.errors,
             "warnings": validation_result.warnings,
         }
+
+        # Ingest the newly generated strategy into RAG for future retrieval.
+        try:
+            rag = rag_service.get_rag_or_none()
+            if rag is not None:
+                ingest_dict = {
+                    "name": strategy_output.strategy_name,
+                    "description": strategy_output.description,
+                    "instrument": strategy_output.instrument,
+                    "segment": strategy_output.segment,
+                    "timeframe": strategy_output.timeframe,
+                    "entry_conditions": [
+                        cond.model_dump() for cond in strategy_output.entry_conditions
+                    ],
+                    "exit_conditions": [
+                        cond.model_dump() for cond in strategy_output.exit_conditions
+                    ],
+                    "stop_loss": strategy_output.stop_loss.model_dump(),
+                    "target": strategy_output.target.model_dump(),
+                    "position_sizing": strategy_output.position_sizing.model_dump(),
+                    "confidence": strategy_output.confidence,
+                    "reasoning": strategy_output.reasoning,
+                }
+                background_tasks.add_task(rag.ingestion.ingest_strategy, ingest_dict)
+        except Exception as exc:
+            logger.warning("RAG ingestion of generated strategy failed: {}", exc)
 
         logger.info(
             "Strategy generated for prompt: {} | instrument={} confidence={:.2f}",
@@ -171,6 +219,42 @@ async def generate_strategy(
         )
 
 
+def _extract_instrument(message: str) -> Optional[str]:
+    """Try to detect a trading instrument in the user message."""
+    known = [
+        "NIFTY50",
+        "NIFTY",
+        "BANKNIFTY",
+        "FINNIFTY",
+        "SENSEX",
+        "RELIANCE",
+        "TCS",
+        "INFY",
+        "HDFCBANK",
+        "ICICIBANK",
+        "SBIN",
+        "ITC",
+        "LT",
+        "BHARTIARTL",
+        "ADANIENT",
+        "BTCUSD",
+        "ETHUSD",
+        "EURUSD",
+        "GBPUSD",
+        "USDJPY",
+        "XAUUSD",
+    ]
+    upper = message.upper()
+    for symbol in known:
+        if symbol in upper:
+            return symbol
+    # Try to extract a word after "for", "on", or "about".
+    match = re.search(r"\b(?:for|on|about)\s+([A-Z][A-Za-z0-9&]+)", message)
+    if match:
+        return match.group(1).upper()
+    return None
+
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
@@ -183,9 +267,45 @@ async def chat(request: ChatRequest) -> ChatResponse:
     try:
         llm_engine = LLMEngine()
         context = request.context or []
+
+        # Augment the system prompt with RAG context when available.
+        augmented_system: Optional[str] = None
+        try:
+            rag = rag_service.get_rag_or_none()
+            if rag is not None:
+                instrument = _extract_instrument(request.message)
+                if instrument:
+                    rag_context = await rag.analyze_market(instrument)
+                    market_context = rag_context.get("market_context", [])
+                    regime = rag_context.get("regime")
+                    retrieved = json.dumps(
+                        {"market_context": market_context, "regime": regime},
+                        indent=2,
+                        default=str,
+                    )
+                else:
+                    similar = await rag.find_similar_strategies(
+                        request.message, top_k=3
+                    )
+                    retrieved = json.dumps(
+                        {"similar_strategies": similar},
+                        indent=2,
+                        default=str,
+                    )
+
+                augmented_system = (
+                    "You are TradeForge AI, a helpful trading assistant. "
+                    "Use the following retrieved context to inform your answer.\n\n"
+                    f"{retrieved}\n\n"
+                    "Keep answers concise and actionable."
+                )
+        except Exception as exc:
+            logger.warning("RAG chat context retrieval failed: {}", exc)
+
         response_text = llm_engine.chat(
             message=request.message,
             context=context,
+            system_prompt=augmented_system,
         )
 
         return ChatResponse(
@@ -242,7 +362,21 @@ async def analyze_backtest(request: AnalyzeBacktestRequest) -> Dict[str, str]:
     """Analyze backtest results and suggest improvements."""
     try:
         llm_engine = LLMEngine()
-        analysis = llm_engine.analyze_backtest(request.results)
+
+        # Fetch RAG context for backtest analysis when available.
+        system_prompt: Optional[str] = None
+        try:
+            rag = rag_service.get_rag_or_none()
+            if rag is not None:
+                rag_context = await rag.analyze_backtest(request.results)
+                system_prompt = rag_context.get("prompt")
+        except Exception as exc:
+            logger.warning("RAG backtest analysis context retrieval failed: {}", exc)
+
+        analysis = llm_engine.analyze_backtest(
+            request.results,
+            system_prompt=system_prompt,
+        )
 
         return {
             "analysis": analysis,
@@ -337,6 +471,41 @@ async def parse_strategy(request: ParseStrategyRequest) -> ParseStrategyResponse
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Strategy parsing failed: {exc}",
         )
+
+
+@router.get(
+    "/rag-status",
+    summary="RAG engine status",
+    description="Return the current status and statistics of the RAG engine.",
+)
+async def rag_status() -> Dict[str, Any]:
+    """Return RAG engine status and statistics."""
+    try:
+        rag = rag_service.get_rag_or_none()
+        if rag is None:
+            return {
+                "initialized": False,
+                "queries_served": 0,
+                "total_query_time_ms": 0.0,
+                "ingestion": {},
+            }
+
+        stats = rag.get_stats()
+        performance = stats.get("performance", {})
+        return {
+            "initialized": True,
+            "queries_served": performance.get("queries_served", 0),
+            "total_query_time_ms": performance.get("total_query_time_ms", 0.0),
+            "ingestion": stats.get("ingestion", {}),
+        }
+    except Exception as exc:
+        logger.warning("RAG status check failed: {}", exc)
+        return {
+            "initialized": False,
+            "queries_served": 0,
+            "total_query_time_ms": 0.0,
+            "ingestion": {},
+        }
 
 
 @router.get(

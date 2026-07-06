@@ -18,10 +18,12 @@ from typing import Any, Dict, List, Optional
 
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel, Field, model_validator
 from loguru import logger
 
+import rag_service
+from core.sanitization import sanitize_dict, sanitize_string
 from database.models import Strategy, StrategyStatus
 from routers.auth import get_current_user_optional, UserDocument
 
@@ -48,6 +50,22 @@ class StrategyCreate(BaseModel):
     position_sizing: dict = Field(default_factory=dict, description="Position sizing config")
     definition: Optional[dict] = Field(default=None, description="Full strategy definition JSON")
     nl_prompt: Optional[str] = Field(default=None, description="Original NL prompt (if AI-generated)")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sanitize_inputs(cls, data: Any) -> Any:
+        """Sanitize user-provided string fields before validation."""
+        if not isinstance(data, dict):
+            return data
+
+        for field in ("name", "description", "nl_prompt"):
+            if isinstance(data.get(field), str):
+                data[field] = sanitize_string(data[field])
+
+        if isinstance(data.get("definition"), dict):
+            data["definition"] = sanitize_dict(data["definition"])
+
+        return data
 
 
 class StrategyResponse(BaseModel):
@@ -195,6 +213,7 @@ async def list_strategies(
 )
 async def create_strategy(
     strategy: StrategyCreate,
+    background_tasks: BackgroundTasks,
     current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Create a new strategy."""
@@ -233,6 +252,16 @@ async def create_strategy(
         await db_strategy.insert()
 
         logger.info("Created strategy id={} name='{}'", db_strategy.id, db_strategy.name)
+
+        rag = rag_service.get_rag_or_none()
+        if rag is not None:
+            try:
+                background_tasks.add_task(
+                    rag.ingestion.ingest_strategy,
+                    _strategy_to_dict(db_strategy),
+                )
+            except Exception as exc:
+                logger.warning("Failed to schedule RAG ingestion for strategy: {}", exc)
 
         return StrategyResponse(**_strategy_to_dict(db_strategy))
 
@@ -279,6 +308,7 @@ async def get_strategy(
 async def update_strategy(
     strategy_id: str,
     strategy: StrategyCreate,
+    background_tasks: BackgroundTasks,
     current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> StrategyResponse:
     """Update an existing strategy."""
@@ -311,6 +341,16 @@ async def update_strategy(
     await db_strategy.save()
 
     logger.info("Updated strategy id={}", strategy_id)
+
+    rag = rag_service.get_rag_or_none()
+    if rag is not None:
+        try:
+            background_tasks.add_task(
+                rag.ingestion.ingest_strategy,
+                _strategy_to_dict(db_strategy),
+            )
+        except Exception as exc:
+            logger.warning("Failed to schedule RAG ingestion for strategy update: {}", exc)
 
     return StrategyResponse(**_strategy_to_dict(db_strategy))
 

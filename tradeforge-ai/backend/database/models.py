@@ -102,6 +102,34 @@ class UserRole(str, enum.Enum):
 
 
 # ---------------------------------------------------------------------------
+# Audit log
+# ---------------------------------------------------------------------------
+
+
+class AuditLog(Document):
+    """Immutable audit log entry for mutating API requests."""
+
+    user_id: Optional[PydanticObjectId] = None
+    username: Optional[str] = None
+    role: Optional[str] = None
+
+    action: str
+    resource: str
+    resource_id: Optional[str] = None
+
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+    status_code: int
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+    details: Optional[Dict[str, Any]] = None
+
+    class Settings:
+        name = "audit_logs"
+
+
+# ---------------------------------------------------------------------------
 # Helper base for timestamped documents
 # ---------------------------------------------------------------------------
 
@@ -396,6 +424,7 @@ class BrokerConfig(TimestampedDocument):
     api_secret: Optional[str] = None
     client_id: Optional[str] = None
     access_token: Optional[str] = None
+    redirect_uri: Optional[str] = None
 
     is_active: bool = Field(
         default=False,

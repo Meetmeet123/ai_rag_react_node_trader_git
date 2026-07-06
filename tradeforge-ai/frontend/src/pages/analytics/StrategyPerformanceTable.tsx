@@ -1,8 +1,37 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { StrategyPerformance as ApiStrategyPerformance } from '@/types/api';
 import { strategyPerformance } from './data';
 
-type SortKey = keyof typeof strategyPerformance[0];
+type SortKey = 'name' | 'trades' | 'winRate' | 'netPnl' | 'avgProfit' | 'avgLoss' | 'profitFactor';
+
+interface StrategyPerformanceRow {
+  name: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  netPnl: number;
+  avgProfit: number;
+  avgLoss: number;
+  profitFactor: number;
+  sharpe?: number;
+  maxDrawdown?: number;
+}
+
+function normalizeStrategyPerformance(items: ApiStrategyPerformance[]): StrategyPerformanceRow[] {
+  return items.map(s => ({
+    name: s.name,
+    trades: s.trades,
+    wins: s.winning_trades,
+    losses: s.losing_trades,
+    winRate: s.win_rate,
+    netPnl: s.net_pnl,
+    avgProfit: s.avg_profit,
+    avgLoss: s.avg_loss,
+    profitFactor: s.profit_factor,
+  }));
+}
 
 interface PerformanceMetricsProps {
   label: string;
@@ -19,21 +48,34 @@ function PerformanceMetric({ label, value, valueColor = 'text-[#F1F5F9]' }: Perf
   );
 }
 
-export default function StrategyPerformanceTable() {
+interface StrategyPerformanceTableProps {
+  strategyPerformance?: ApiStrategyPerformance[];
+}
+
+export default function StrategyPerformanceTable({ strategyPerformance: strategyPerformanceProp }: StrategyPerformanceTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('netPnl');
   const [sortAsc, setSortAsc] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  const sorted = [...strategyPerformance].sort((a, b) => {
-    const aVal = a[sortKey];
-    const bVal = b[sortKey];
-    if (typeof aVal === 'number' && typeof bVal === 'number') {
-      return sortAsc ? aVal - bVal : bVal - aVal;
+  const rows = useMemo<StrategyPerformanceRow[]>(() => {
+    if (strategyPerformanceProp) {
+      return normalizeStrategyPerformance(strategyPerformanceProp);
     }
-    return sortAsc
-      ? String(aVal).localeCompare(String(bVal))
-      : String(bVal).localeCompare(String(aVal));
-  });
+    return strategyPerformance.map(s => ({ ...s }));
+  }, [strategyPerformanceProp]);
+
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortAsc ? aVal - bVal : bVal - aVal;
+      }
+      return sortAsc
+        ? String(aVal).localeCompare(String(bVal))
+        : String(bVal).localeCompare(String(aVal));
+    });
+  }, [rows, sortKey, sortAsc]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -116,11 +158,11 @@ export default function StrategyPerformanceTable() {
                           </div>
                           <div>
                             <span className="text-[#64748B]">Sharpe: </span>
-                            <span className="text-[#F1F5F9] font-mono font-medium">{strat.sharpe.toFixed(2)}</span>
+                            <span className="text-[#F1F5F9] font-mono font-medium">{strat.sharpe?.toFixed(2) ?? '-'}</span>
                           </div>
                           <div>
                             <span className="text-[#64748B]">Max DD: </span>
-                            <span className="text-[#EF4444] font-mono font-medium">₹{Math.abs(strat.maxDrawdown).toLocaleString('en-IN')}</span>
+                            <span className="text-[#EF4444] font-mono font-medium">₹{strat.maxDrawdown ? Math.abs(strat.maxDrawdown).toLocaleString('en-IN') : '-'}</span>
                           </div>
                           <div>
                             <span className="text-[#64748B]">P.F.: </span>

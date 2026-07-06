@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, Skull, Clock } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Spinner } from '@/components/ui/spinner';
+import { useQuery, useMutation } from '@/hooks/useApi';
+import { fetchSettings, updateSettings } from '@/lib/api';
 
 export default function RiskManagementSettings() {
   const [dailyLossEnabled, setDailyLossEnabled] = useState(true);
@@ -23,8 +27,53 @@ export default function RiskManagementSettings() {
   const [maxTradesPerDay, setMaxTradesPerDay] = useState('20');
   const [maxTradesPerStrategy, setMaxTradesPerStrategy] = useState('5');
 
+  const { data: settings, isLoading } = useQuery(fetchSettings);
+  const { mutate: saveSettings, isLoading: isSaving } = useMutation(updateSettings);
+
+  useEffect(() => {
+    if (!settings) return;
+    setDailyLossLimit(String(settings.daily_loss_limit));
+    setDailyLossEnabled(settings.daily_loss_limit_enabled);
+    setMaxPositions([settings.max_positions]);
+    setMaxExposurePerTrade([settings.max_exposure_per_trade_pct]);
+    setMaxExposureOverall([settings.max_exposure_overall_pct]);
+    setKillSwitchEnabled(settings.kill_switch_enabled);
+    setSquareOffTime(settings.auto_square_off_time);
+  }, [settings]);
+
+  const handleSave = async () => {
+    const payload = {
+      daily_loss_limit: Number(dailyLossLimit) || 0,
+      daily_loss_limit_enabled: dailyLossEnabled,
+      max_positions: maxPositions[0],
+      max_exposure_per_trade_pct: maxExposurePerTrade[0],
+      max_exposure_overall_pct: maxExposureOverall[0],
+      kill_switch_enabled: killSwitchEnabled,
+      auto_square_off_time: squareOffTime,
+    };
+
+    try {
+      await saveSettings(payload);
+      toast.success('Risk settings saved successfully');
+    } catch (err) {
+      const message = err && typeof err === 'object' && 'detail' in err
+        ? String(err.detail)
+        : 'Failed to save risk settings';
+      toast.error(message);
+    }
+  };
+
   return (
-    <div className="space-y-6 max-w-[720px]">
+    <div className="space-y-6 max-w-[720px] relative">
+      {isLoading && (
+        <div className="absolute inset-0 z-10 bg-[#030305]/60 backdrop-blur-[2px] rounded-[8px] flex items-center justify-center">
+          <div className="flex items-center gap-2 text-[#94A3B8] text-[13px]">
+            <Spinner className="text-[#22D3EE]" />
+            Loading settings…
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="font-display text-[28px] font-semibold text-[#F1F5F9]">Risk Management</h2>
         <p className="text-[14px] text-[#94A3B8] mt-1">
@@ -355,8 +404,19 @@ export default function RiskManagementSettings() {
 
       {/* Save Button */}
       <div className="flex justify-end pt-2 pb-6">
-        <Button className="bg-[#22D3EE] text-[#030305] hover:brightness-110 font-semibold text-[13px] h-10 px-6 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
-          Save Risk Settings
+        <Button
+          onClick={handleSave}
+          disabled={isSaving || isLoading}
+          className="bg-[#22D3EE] text-[#030305] hover:brightness-110 font-semibold text-[13px] h-10 px-6 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
+        >
+          {isSaving ? (
+            <span className="flex items-center gap-2">
+              <Spinner className="text-[#030305]" />
+              Saving…
+            </span>
+          ) : (
+            'Save Risk Settings'
+          )}
         </Button>
       </div>
     </div>

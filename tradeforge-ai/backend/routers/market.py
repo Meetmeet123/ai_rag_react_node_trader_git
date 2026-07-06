@@ -126,15 +126,11 @@ async def get_historical(
     try:
         ingestor = _get_ingestor()
 
-        # Run the async fetch
-        import asyncio
-        df = asyncio.get_event_loop().run_until_complete(
-            ingestor.fetch_historical(
-                symbol=symbol.upper(),
-                from_date=from_date,
-                to_date=to_date,
-                timeframe=timeframe,
-            )
+        df = await ingestor.fetch_historical(
+            symbol=symbol.upper(),
+            from_date=from_date,
+            to_date=to_date,
+            timeframe=timeframe,
         )
 
         if df.empty:
@@ -190,11 +186,7 @@ async def get_ltp(symbol: str) -> LTPResponse:
     try:
         ingestor = _get_ingestor()
 
-        # Try to get the latest price from cached data
-        import asyncio
-        df = asyncio.get_event_loop().run_until_complete(
-            ingestor.update_realtime(symbol=symbol.upper())
-        )
+        df = await ingestor.update_realtime(symbol=symbol.upper())
 
         if df is not None and not df.empty:
             latest = df.iloc[-1]
@@ -267,21 +259,17 @@ async def get_quote(
     try:
         ingestor = _get_ingestor()
 
-        # Parse period
-        import asyncio
         days_map = {"1d": 1, "5d": 5, "7d": 7, "15d": 15, "30d": 30, "90d": 90, "180d": 180, "365d": 365}
         days = days_map.get(period, 30)
 
         to_date = datetime.now()
         from_date = to_date - __import__("datetime").timedelta(days=days)
 
-        df = asyncio.get_event_loop().run_until_complete(
-            ingestor.fetch_historical(
-                symbol=symbol.upper(),
-                from_date=from_date,
-                to_date=to_date,
-                timeframe="1d",
-            )
+        df = await ingestor.fetch_historical(
+            symbol=symbol.upper(),
+            from_date=from_date,
+            to_date=to_date,
+            timeframe="1d",
         )
 
         if df.empty:
@@ -300,18 +288,27 @@ async def get_quote(
         volumes = df["volume"].tolist() if "volume" in df.columns else []
 
         try:
-            indicators = calculate_all_indicators(
-                close_prices=close_prices,
-                high_prices=high_prices,
-                low_prices=low_prices,
-                open_prices=open_prices,
-                volumes=volumes,
+            import pandas as pd
+            ind_df = pd.DataFrame(
+                {
+                    "open": open_prices,
+                    "high": high_prices,
+                    "low": low_prices,
+                    "close": close_prices,
+                    "volume": volumes if volumes else [0] * len(close_prices),
+                }
             )
+            ind_df = calculate_all_indicators(ind_df)
 
             # Get latest indicator values
             latest_indicators = {
-                name: values[-1] if values else None
-                for name, values in indicators.items()
+                name: (
+                    float(ind_df[name].iloc[-1])
+                    if name in ind_df.columns and not ind_df[name].empty
+                    else None
+                )
+                for name in ind_df.columns
+                if name not in ("open", "high", "low", "close", "volume")
             }
         except Exception as ind_exc:
             logger.warning("Indicator calculation failed for {}: {}", symbol, ind_exc)
@@ -352,11 +349,26 @@ async def get_quote(
         )
 
 
+@router.get(
+    "/indicators/{symbol}",
+    response_model=QuoteResponse,
+    summary="Get technical indicators for a symbol",
+    description="Fetch historical data and calculate all technical indicators for a symbol.",
+)
+async def get_indicators_for_symbol(
+    symbol: str,
+    period: str = "30d",
+) -> QuoteResponse:
+    """Get OHLCV plus technical indicators for a symbol."""
+    # Reuse the quote endpoint logic.
+    return await get_quote(symbol=symbol, period=period)
+
+
 @router.post(
     "/indicators",
     response_model=IndicatorsResponse,
-    summary="Calculate technical indicators",
-    description="Calculate all technical indicators from raw price data.",
+    summary="Calculate technical indicators from raw prices",
+    description="Calculate all technical indicators from raw OHLCV arrays.",
 )
 async def calculate_indicators(request: IndicatorsRequest) -> IndicatorsResponse:
     """Calculate technical indicators from price data."""
@@ -367,21 +379,33 @@ async def calculate_indicators(request: IndicatorsRequest) -> IndicatorsResponse
                 detail="At least 2 close prices are required",
             )
 
-        indicators = calculate_all_indicators(
-            close_prices=request.close_prices,
-            high_prices=request.high_prices,
-            low_prices=request.low_prices,
-            open_prices=request.open_prices,
-            volumes=request.volumes,
+        import pandas as pd
+        df = pd.DataFrame(
+            {
+                "open": request.open_prices,
+                "high": request.high_prices,
+                "low": request.low_prices,
+                "close": request.close_prices,
+                "volume": (
+                    request.volumes
+                    if request.volumes
+                    else [0.0] * len(request.close_prices)
+                ),
+            }
         )
+        ind_df = calculate_all_indicators(df)
 
-        # Convert numpy arrays to Python lists for JSON serialization
+        # Convert indicator columns to serialisable lists
+        indicator_cols = [
+            c for c in ind_df.columns if c not in ("open", "high", "low", "close", "volume")
+        ]
         serializable_indicators = {
             name: (
-                [round(float(v), 4) for v in values]
-                if values else []
+                [None if pd.isna(v) else round(float(v), 4) for v in ind_df[name].tolist()]
+                if name in ind_df.columns
+                else []
             )
-            for name, values in indicators.items()
+            for name in indicator_cols
         }
 
         return IndicatorsResponse(

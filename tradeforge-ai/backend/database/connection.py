@@ -15,6 +15,7 @@ from beanie import init_beanie
 from config import settings
 from database.models import (
     Account,
+    AuditLog,
     BacktestRun,
     BrokerConfig,
     MarketData,
@@ -37,6 +38,7 @@ _db: Optional[AsyncIOMotorDatabase] = None
 DOCUMENT_MODELS: List[type] = [
     User,
     Account,
+    AuditLog,
     Strategy,
     Trade,
     Signal,

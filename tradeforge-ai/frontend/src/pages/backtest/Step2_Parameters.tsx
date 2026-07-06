@@ -260,6 +260,12 @@ export default function Step2_Parameters({ config, onChange, onRun, error }: Ste
             </div>
           </div>
 
+          {error && (
+            <p className="text-[12px] text-[#EF4444] bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.16)] rounded-[6px] px-3 py-2">
+              {error}
+            </p>
+          )}
+
           {/* Run Button */}
           <button
             onClick={onRun}

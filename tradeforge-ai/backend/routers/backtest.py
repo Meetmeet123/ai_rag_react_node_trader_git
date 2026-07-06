@@ -14,8 +14,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from datetime import datetime
-
 import pandas as pd
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
@@ -23,8 +21,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from loguru import logger
 
+import rag_service
+from celery_app import celery_app
 from config import settings
 from core.backtest_engine import BacktestConfig, BacktestEngine
+from tasks.backtest import run_backtest_task
 from core.condition_evaluator import evaluate_conditions
 from core.market_data.ingestor import MarketDataIngestor
 from core.synthetic_data import generate_ohlcv
@@ -302,6 +303,36 @@ async def _execute_backtest(
         bt.completed_at = datetime.utcnow()
         await bt.save()
 
+        # Ingest completed backtest results into RAG for retrieval.
+        try:
+            rag = rag_service.get_rag_or_none()
+            if rag is not None:
+                monthly_returns = bt.monthly_returns or {}
+                if isinstance(monthly_returns, dict):
+                    monthly_returns = monthly_returns.get("monthly", monthly_returns)
+
+                backtest_dict = {
+                    "id": str(bt.id),
+                    "strategy_name": strategy.name,
+                    "strategy_id": str(strategy.id),
+                    "symbol": strategy.instrument,
+                    "start_date": bt.start_date.isoformat() if bt.start_date else None,
+                    "end_date": bt.end_date.isoformat() if bt.end_date else None,
+                    "timeframe": strategy.timeframe or "1d",
+                    "metrics": {
+                        "win_rate": bt.win_rate or 0.0,
+                        "total_pnl": bt.net_pnl or 0.0,
+                        "sharpe_ratio": bt.sharpe_ratio or 0.0,
+                        "profit_factor": bt.profit_factor or 0.0,
+                        "max_drawdown_pct": bt.max_drawdown_pct or 0.0,
+                        "total_trades": bt.total_trades or 0,
+                    },
+                    "monthly_returns": monthly_returns,
+                }
+                await rag.ingestion.ingest_backtest_result(backtest_dict)
+        except Exception as exc:
+            logger.warning("RAG backtest ingestion failed id={}: {}", backtest_id, exc)
+
         logger.info(
             "Backtest completed id={} trades={} pnl={:.2f} win_rate={:.1f}%",
             backtest_id,
@@ -364,7 +395,28 @@ async def run_backtest(
         request.initial_capital,
     )
 
-    background_tasks.add_task(_execute_backtest, str(backtest_run.id), request.strategy_id, request)
+    # Enqueue via Celery; fall back to in-process background tasks if the
+    # broker is unavailable (e.g., local dev without Redis running).
+    try:
+        run_backtest_task.apply_async(
+            args=[
+                str(backtest_run.id),
+                request.strategy_id,
+                request.model_dump(mode="json"),
+            ],
+        )
+        logger.info("Backtest enqueued via Celery id={}", backtest_run.id)
+    except Exception as exc:
+        logger.warning(
+            "Celery broker unavailable; falling back to background task: {}",
+            exc,
+        )
+        background_tasks.add_task(
+            _execute_backtest,
+            str(backtest_run.id),
+            request.strategy_id,
+            request,
+        )
 
     return BacktestDetailResponse(**_backtest_detail_to_dict(backtest_run, strategy.name))
 

@@ -5,6 +5,8 @@ Uses pydantic-settings with .env file support for all application configuration.
 All sensitive values (API keys, secrets) are read from environment variables.
 """
 
+from typing import Optional
+
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field
 
@@ -23,8 +25,24 @@ class Settings(BaseSettings):
     APP_NAME: str = Field(default="TradeForge AI", description="Application display name")
     DEBUG: bool = Field(default=False, description="Enable debug mode with verbose logging")
     SECRET_KEY: str = Field(description="Secret key for JWT signing and encryption")
+    FRONTEND_URL: str = Field(
+        default="http://localhost:5173",
+        description="Allowed frontend origin(s); comma-separated for multiple",
+    )
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
         default=60 * 24, description="JWT access token expiration in minutes"
+    )
+
+    # ------------------------------------------------------------------
+    # Task Queue (Celery + Redis)
+    # ------------------------------------------------------------------
+    CELERY_BROKER_URL: str = Field(
+        default="redis://localhost:6379/0",
+        description="Celery broker URL (Redis)",
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="redis://localhost:6379/0",
+        description="Celery result backend URL (Redis)",
     )
 
     # ------------------------------------------------------------------
@@ -131,6 +149,19 @@ class Settings(BaseSettings):
     ZERODHA_API_KEY: str = Field(default="", description="Zerodha Kite API key")
     FYERS_APP_ID: str = Field(default="", description="Fyers application ID")
     UPSTOX_API_KEY: str = Field(default="", description="Upstox API key")
+
+    # ------------------------------------------------------------------
+    # Security
+    # ------------------------------------------------------------------
+    ENCRYPTION_KEY: Optional[str] = Field(
+        default=None,
+        description="Fernet encryption key (base64). Falls back to deriving from SECRET_KEY.",
+    )
+
+    SENTRY_DSN: Optional[str] = Field(
+        default=None,
+        description="Sentry DSN for error reporting. Disabled when not set.",
+    )
 
     # ------------------------------------------------------------------
     # Paths

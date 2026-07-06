@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
+import { fetchBacktest } from '@/lib/api';
+import { apiBacktestRunToResult } from './adapter';
+import type { BacktestResult } from './types';
 
 const STATUS_MESSAGES = [
   'Fetching historical data...',
@@ -10,30 +13,58 @@ const STATUS_MESSAGES = [
 ];
 
 interface Step3Props {
-  onComplete: () => void;
+  backtestId: string;
+  onComplete: (result: BacktestResult) => void;
+  onError: (message: string) => void;
   symbol: string;
   startDate: string;
   endDate: string;
 }
 
-export default function Step3_Running({ onComplete, symbol, startDate, endDate }: Step3Props) {
-  const [progress, setProgress] = useState(0);
+export default function Step3_Running({ backtestId, onComplete, onError, symbol, startDate, endDate }: Step3Props) {
+  const [progress, setProgress] = useState(10);
   const [messageIndex, setMessageIndex] = useState(0);
+  const [status, setStatus] = useState<string>('running');
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(onComplete, 600);
-          return 100;
-        }
-        return prev + Math.random() * 4 + 1;
-      });
-    }, 150);
+    let cancelled = false;
 
-    return () => clearInterval(interval);
-  }, [onComplete]);
+    const poll = async () => {
+      try {
+        const run = await fetchBacktest(backtestId);
+        if (cancelled) return;
+        setStatus(run.status);
+
+        if (run.status === 'completed') {
+          setProgress(100);
+          onComplete(apiBacktestRunToResult(run));
+          return;
+        }
+
+        if (run.status === 'failed') {
+          onError(run.error_message || 'Backtest failed');
+          return;
+        }
+
+        // Simulate progress while running
+        setProgress((prev) => Math.min(prev + Math.random() * 8 + 2, 90));
+      } catch (err) {
+        if (cancelled) return;
+        const message = err && typeof err === 'object' && 'detail' in err
+          ? String((err as { detail: string }).detail)
+          : 'Failed to check backtest status';
+        onError(message);
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 1500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [backtestId, onComplete, onError]);
 
   useEffect(() => {
     const msgInterval = setInterval(() => {
@@ -72,14 +103,15 @@ export default function Step3_Running({ onComplete, symbol, startDate, endDate }
       </p>
 
       {/* Status message */}
-      <p className="text-[13px] text-[#64748B] mb-6 min-h-[20px] transition-opacity duration-200">
+      <p className="text-[13px] text-[#64748B] mb-2 min-h-[20px] transition-opacity duration-200">
         {STATUS_MESSAGES[messageIndex]}
       </p>
+      <p className="text-[11px] text-[#475569]">Status: {status}</p>
 
       {/* Cancel */}
       <button
         onClick={() => window.location.reload()}
-        className="px-4 py-2 text-[12px] text-[#64748B] hover:text-[#F1F5F9] transition-colors"
+        className="mt-6 px-4 py-2 text-[12px] text-[#64748B] hover:text-[#F1F5F9] transition-colors"
       >
         Cancel
       </button>

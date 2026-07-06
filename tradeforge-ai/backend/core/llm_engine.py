@@ -24,11 +24,13 @@ Dependencies:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import datetime
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
@@ -43,6 +45,7 @@ AutoModelForCausalLM: Any = None
 pipeline: Any = None
 TrainingArguments: Any = None
 Trainer: Any = None
+TrainerCallback: Any = None
 DataCollatorForLanguageModeling: Any = None
 LoraConfig: Any = None
 get_peft_model: Any = None
@@ -54,7 +57,7 @@ Dataset: Any = None
 def _load_ml_deps() -> None:
     """Import heavy ML libraries on first use."""
     global torch, AutoTokenizer, AutoModelForCausalLM, pipeline
-    global TrainingArguments, Trainer, DataCollatorForLanguageModeling
+    global TrainingArguments, Trainer, TrainerCallback, DataCollatorForLanguageModeling
     global LoraConfig, get_peft_model, PeftModel, TaskType, Dataset
 
     if torch is not None:
@@ -67,13 +70,8 @@ def _load_ml_deps() -> None:
         pipeline as _pipeline,
         TrainingArguments as _TrainingArguments,
         Trainer as _Trainer,
+        TrainerCallback as _TrainerCallback,
         DataCollatorForLanguageModeling as _DataCollatorForLanguageModeling,
-    )
-    from peft import (
-        LoraConfig as _LoraConfig,
-        get_peft_model as _get_peft_model,
-        PeftModel as _PeftModel,
-        TaskType as _TaskType,
     )
     from datasets import Dataset as _Dataset
 
@@ -83,12 +81,30 @@ def _load_ml_deps() -> None:
     pipeline = _pipeline
     TrainingArguments = _TrainingArguments
     Trainer = _Trainer
+    TrainerCallback = _TrainerCallback
     DataCollatorForLanguageModeling = _DataCollatorForLanguageModeling
-    LoraConfig = _LoraConfig
-    get_peft_model = _get_peft_model
-    PeftModel = _PeftModel
-    TaskType = _TaskType
     Dataset = _Dataset
+
+    # PEFT is optional at import/load time but required for fine-tuning.
+    try:
+        from peft import (
+            LoraConfig as _LoraConfig,
+            get_peft_model as _get_peft_model,
+            PeftModel as _PeftModel,
+            TaskType as _TaskType,
+        )
+        LoraConfig = _LoraConfig
+        get_peft_model = _get_peft_model
+        PeftModel = _PeftModel
+        TaskType = _TaskType
+    except ImportError:
+        logger.warning(
+            "PEFT is not installed. Fine-tuning will not be available."
+        )
+        LoraConfig = None
+        get_peft_model = None
+        PeftModel = None
+        TaskType = None
 
     logger.debug("Heavy ML dependencies loaded successfully.")
 
@@ -240,6 +256,72 @@ class StrategyOutput(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         """Serialize strategy to a plain Python dictionary."""
         return self.model_dump()
+
+
+# =============================================================================
+# Training progress callback — forwards Trainer events to an async callback
+# =============================================================================
+
+
+def _make_progress_callback_class() -> type:
+    """Return a ``TrainerCallback`` subclass that forwards events async."""
+    if TrainerCallback is None:
+        raise RuntimeError("Transformers TrainerCallback is not available.")
+
+    class _FineTuneProgressCallback(TrainerCallback):
+        """
+        Transformers ``TrainerCallback`` that forwards events to an async callback.
+
+        The trainer runs inside a thread-pool executor. This callback captures the
+        current asyncio event loop at construction time and uses
+        ``loop.call_soon_threadsafe`` to schedule the async callback back on the
+        loop thread.
+        """
+
+        def __init__(
+            self,
+            loop: asyncio.AbstractEventLoop,
+            async_callback: Callable[[Dict[str, Any]], Coroutine],
+        ) -> None:
+            super().__init__()
+            self._loop = loop
+            self._async_callback = async_callback
+
+        def _emit(self, payload: Dict[str, Any]) -> None:
+            if self._async_callback is None:
+                return
+            try:
+                self._loop.call_soon_threadsafe(
+                    asyncio.create_task, self._async_callback(payload)
+                )
+            except RuntimeError:
+                # Event loop closed — ignore late events during shutdown.
+                pass
+
+        def on_log(
+            self,
+            args: Any,
+            state: Any,
+            control: Any,
+            logs: Optional[Dict[str, Any]] = None,
+            **kwargs: Any,
+        ) -> None:
+            if logs:
+                self._emit({"event": "log", **logs})
+
+        def on_epoch_end(
+            self, args: Any, state: Any, control: Any, **kwargs: Any
+        ) -> None:
+            payload: Dict[str, Any] = {
+                "event": "epoch_end",
+                "epoch": int(state.epoch) if state.epoch else 0,
+            }
+            if state.log_history:
+                latest = state.log_history[-1]
+                payload["loss"] = latest.get("loss", 0.0)
+            self._emit(payload)
+
+    return _FineTuneProgressCallback
 
 
 # =============================================================================
@@ -553,6 +635,164 @@ class LLMEngine:
         """Return ``True`` if the underlying model is loaded and ready."""
         return self._model_loaded
 
+    def get_model_info(self) -> Dict[str, Any]:
+        """Return model architecture and runtime information."""
+        return {
+            "base_model": self.base_model_name,
+            "device": self.device,
+            "model_loaded": self._model_loaded,
+            "quantization": self.quantization,
+        }
+
+    async def fine_tune(
+        self,
+        dataset: Any,
+        checkpoint_path: Optional[str] = None,
+        epochs: int = 3,
+        learning_rate: float = 1e-4,
+        batch_size: int = 32,
+        job_id: int = 0,
+        progress_callback: Optional[Callable[[Dict[str, Any]], Coroutine]] = None,
+    ) -> str:
+        """
+        Fine-tune the base model on a HuggingFace ``datasets.Dataset``.
+
+        The dataset is expected to contain a ``text`` column with causal-LM
+        training examples. Training is performed in a background thread pool
+        so the async event loop remains responsive.
+
+        Parameters
+        ----------
+        dataset:
+            HuggingFace ``Dataset`` with a ``text`` column.
+        checkpoint_path:
+            Optional path to an existing LoRA adapter to resume from.
+        epochs:
+            Number of training epochs.
+        learning_rate:
+            Optimizer learning rate.
+        batch_size:
+            Per-device training batch size.
+        job_id:
+            Identifier used to name the output checkpoint directory.
+        progress_callback:
+            Optional async callable invoked with training progress dicts.
+
+        Returns
+        -------
+        str
+            Path to the saved checkpoint directory.
+        """
+        try:
+            if LoraConfig is None or get_peft_model is None or PeftModel is None:
+                raise RuntimeError("PEFT is required for fine-tuning")
+
+            if self._tokenizer is None:
+                raise RuntimeError("Tokenizer not loaded")
+
+            # Resolve a unique output directory under the engine checkpoint dir.
+            output_dir = os.path.join(
+                self.checkpoint_dir, f"job_{job_id}_{int(time.time())}"
+            )
+            os.makedirs(output_dir, exist_ok=True)
+
+            # Load a fresh base model for training.
+            base_model = AutoModelForCausalLM.from_pretrained(
+                self.base_model_name,
+                trust_remote_code=True,
+                torch_dtype=torch.float32,
+                device_map=None,
+            )
+            base_model = base_model.to(self.device)
+
+            # Attach or resume LoRA adapters.
+            if (
+                checkpoint_path
+                and os.path.isdir(checkpoint_path)
+                and os.path.isfile(os.path.join(checkpoint_path, "adapter_config.json"))
+            ):
+                logger.info(f"Resuming LoRA adapter from {checkpoint_path}")
+                train_model = PeftModel.from_pretrained(base_model, checkpoint_path)
+            else:
+                lora_config = LoraConfig(
+                    r=8,
+                    lora_alpha=32,
+                    target_modules=["c_attn", "c_proj"],
+                    lora_dropout=0.05,
+                    bias="none",
+                    task_type="CAUSAL_LM",
+                )
+                train_model = get_peft_model(base_model, lora_config)
+
+            train_model.train()
+
+            def _tokenize_function(examples: Dict[str, Any]) -> Dict[str, Any]:
+                result = self._tokenizer(
+                    examples["text"],
+                    truncation=True,
+                    padding="max_length",
+                    max_length=self.max_length,
+                    return_tensors=None,
+                )
+                result["labels"] = result["input_ids"].copy()
+                return result
+
+            tokenized_dataset = dataset.map(
+                _tokenize_function,
+                batched=True,
+                remove_columns=["text"],
+                desc="Tokenizing dataset",
+            )
+
+            data_collator = DataCollatorForLanguageModeling(
+                tokenizer=self._tokenizer,
+                mlm=False,
+            )
+
+            effective_batch_size = max(1, min(batch_size, len(tokenized_dataset)))
+
+            training_args_kwargs = dict(
+                output_dir=output_dir,
+                num_train_epochs=epochs,
+                per_device_train_batch_size=effective_batch_size,
+                learning_rate=learning_rate,
+                logging_steps=1,
+                save_strategy="epoch",
+                fp16=False,
+                bf16=False,
+                report_to=[],
+                disable_tqdm=True,
+            )
+            # Older/newer transformers versions may not accept this arg.
+            if "overwrite_output_dir" in TrainingArguments.__init__.__code__.co_varnames:
+                training_args_kwargs["overwrite_output_dir"] = True
+            training_args = TrainingArguments(**training_args_kwargs)
+
+            loop = asyncio.get_running_loop()
+            progress_callback_instance = _make_progress_callback_class()(
+                loop, progress_callback
+            )
+
+            trainer = Trainer(
+                model=train_model,
+                args=training_args,
+                train_dataset=tokenized_dataset,
+                data_collator=data_collator,
+                callbacks=[progress_callback_instance],
+            )
+
+            await loop.run_in_executor(None, trainer.train)
+
+            train_model.save_pretrained(output_dir)
+            self._tokenizer.save_pretrained(output_dir)
+
+            logger.info(f"Fine-tuned checkpoint saved to {output_dir}")
+            return output_dir
+
+        except Exception as exc:
+            logger.exception(f"Fine-tuning failed: {exc}")
+            raise RuntimeError(f"Fine-tuning failed: {exc}") from exc
+
     def generate_strategy(self, prompt: str) -> StrategyOutput:
         """
         Convert a natural-language trading idea into a structured strategy.
@@ -593,7 +833,11 @@ class LLMEngine:
         logger.info(f"Strategy generated in {elapsed:.2f}s (rule-based fallback).")
         return strategy
 
-    def analyze_backtest(self, backtest_results: Dict[str, Any]) -> str:
+    def analyze_backtest(
+        self,
+        backtest_results: Dict[str, Any],
+        system_prompt: Optional[str] = None,
+    ) -> str:
         """
         Analyze backtest results and provide natural-language insights.
 
@@ -603,6 +847,9 @@ class LLMEngine:
             Dictionary containing at least:
             ``total_return``, ``sharpe_ratio``, ``max_drawdown``,
             ``win_rate``, ``total_trades``, ``avg_trade_duration``.
+        system_prompt:
+            Optional system prompt override. When provided, it replaces the
+            default backtest analyst system message.
 
         Returns
         -------
@@ -616,7 +863,8 @@ class LLMEngine:
         user_prompt = f"Analyze these backtest results:\n{backtest_json}"
 
         try:
-            built_prompt = self._build_prompt(self._BACKTEST_SYSTEM_PROMPT, user_prompt)
+            system_msg = system_prompt if system_prompt else self._BACKTEST_SYSTEM_PROMPT
+            built_prompt = self._build_prompt(system_msg, user_prompt)
             analysis = self._generate_text(built_prompt, max_new_tokens=512, temperature=0.5)
             logger.info("Backtest analysis generated (LLM path).")
             return analysis
@@ -624,7 +872,12 @@ class LLMEngine:
             logger.warning(f"LLM analysis failed ({exc}) — using template-based analysis.")
             return self._template_backtest_analysis(backtest_results)
 
-    def chat(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> str:
+    def chat(
+        self,
+        message: str,
+        context: Optional[List[Dict[str, str]]] = None,
+        system_prompt: Optional[str] = None,
+    ) -> str:
         """
         General trading-aware chat.
 
@@ -634,6 +887,9 @@ class LLMEngine:
             The user's latest message.
         context:
             Previous conversation turns, each a dict with ``role`` and ``content``.
+        system_prompt:
+            Optional system prompt override. When provided, it replaces the
+            default trading assistant system message.
 
         Returns
         -------
@@ -641,7 +897,7 @@ class LLMEngine:
             The model's response.
         """
         context = context or []
-        system_msg = (
+        system_msg = system_prompt or (
             "You are TradeForge AI, a helpful trading assistant. "
             "You can discuss strategies, technical analysis, risk management, "
             "and market psychology. Keep answers concise and actionable."

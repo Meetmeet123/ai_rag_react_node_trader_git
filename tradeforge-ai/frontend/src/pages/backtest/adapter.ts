@@ -19,25 +19,6 @@ export function savedStrategyToBacktestStrategy(strategy: SavedStrategy): Backte
   };
 }
 
-const POSITION_SIZING_MAP: Record<string, BacktestResult['positionSizing']> = {
-  fixed_qty: 'fixed',
-  pct_capital: 'percent',
-  risk_based: 'risk',
-};
-
-const STOP_LOSS_MAP: Record<string, BacktestResult['stopLossType']> = {
-  fixed_pct: 'fixed',
-  atr: 'atr',
-  none: 'fixed',
-};
-
-const TARGET_MAP: Record<string, BacktestResult['targetType']> = {
-  fixed_pct: 'fixed',
-  rr_based: 'rr',
-  atr: 'atr',
-  none: 'fixed',
-};
-
 export function apiBacktestRunToResult(run: ApiBacktestRun): BacktestResult {
   const trades: Trade[] = (run.trade_log || []).map((t, index) => {
     const trade = t as Record<string, unknown>;

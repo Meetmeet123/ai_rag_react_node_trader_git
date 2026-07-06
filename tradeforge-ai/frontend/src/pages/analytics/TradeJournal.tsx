@@ -1,8 +1,59 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-react';
+import type { AnalyticsTrade } from '@/types/api';
 import { trades } from './data';
 
-export default function TradeJournal() {
+interface TradeRow {
+  id: string;
+  date: string;
+  symbol: string;
+  strategy: string;
+  side: 'Long' | 'Short';
+  entryPrice: number;
+  exitPrice: number;
+  qty: number;
+  pnl: number;
+  pnlPercent: number;
+  holdingPeriod: string;
+  notes: string;
+  tags: string[];
+}
+
+function normalizeSide(side: string): 'Long' | 'Short' {
+  const normalized = side.toLowerCase();
+  if (normalized === 'buy' || normalized === 'long') return 'Long';
+  return 'Short';
+}
+
+function formatHoldingPeriod(entry?: string, exit?: string): string {
+  if (!entry || !exit) return '-';
+  const diff = Math.ceil((new Date(exit).getTime() - new Date(entry).getTime()) / (1000 * 60 * 60 * 24));
+  return diff <= 0 ? 'Same day' : `${diff} day${diff > 1 ? 's' : ''}`;
+}
+
+function normalizeAnalyticsTrades(items: AnalyticsTrade[]): TradeRow[] {
+  return items.map(t => ({
+    id: t.id,
+    date: t.exit_time?.split('T')[0] || t.entry_time?.split('T')[0] || '',
+    symbol: t.symbol,
+    strategy: t.strategy_name,
+    side: normalizeSide(t.side),
+    entryPrice: t.entry_price,
+    exitPrice: t.exit_price,
+    qty: t.quantity,
+    pnl: t.pnl,
+    pnlPercent: t.pnl_pct,
+    holdingPeriod: formatHoldingPeriod(t.entry_time, t.exit_time),
+    notes: '',
+    tags: [],
+  }));
+}
+
+interface TradeJournalProps {
+  trades?: AnalyticsTrade[];
+}
+
+export default function TradeJournal({ trades: tradesProp }: TradeJournalProps) {
   const [search, setSearch] = useState('');
   const [sideFilter, setSideFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -11,7 +62,12 @@ export default function TradeJournal() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
 
-  const filtered = trades.filter(t => {
+  const allTrades = useMemo<TradeRow[]>(() => {
+    if (tradesProp) return normalizeAnalyticsTrades(tradesProp);
+    return trades.map(t => ({ ...t }));
+  }, [tradesProp]);
+
+  const filtered = allTrades.filter(t => {
     const matchesSearch = search === '' ||
       t.symbol.toLowerCase().includes(search.toLowerCase()) ||
       t.strategy.toLowerCase().includes(search.toLowerCase());

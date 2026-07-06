@@ -39,7 +39,7 @@ class SignalRequest(BaseModel):
     symbol: str = Field(..., min_length=1, description="Trading symbol")
     direction: str = Field(..., description="buy or sell")
     quantity: int = Field(..., gt=0, description="Number of shares/lots")
-    strategy_id: int = Field(default=0, ge=0, description="Originating strategy ID")
+    strategy_id: str = Field(default="", description="Originating strategy ID")
     confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Model confidence")
     price: float = Field(default=0.0, ge=0.0, description="Expected price (0 for market)")
     order_type: str = Field(default="market", description="market | limit | sl")
@@ -334,6 +334,30 @@ async def close_all_positions() -> CloseAllResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Kill switch failed: {exc}",
+        )
+
+
+@router.get(
+    "/signals",
+    summary="Get signal history",
+    description="Get the history of processed signals (accepted and rejected).",
+)
+async def get_signals(limit: int = 100) -> Dict[str, Any]:
+    """Get signal history."""
+    try:
+        engine = _get_engine()
+        signals = engine.signal_history[-limit:] if engine.signal_history else []
+        return {
+            "signals": signals,
+            "total_signals": len(engine.signal_history),
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to get signals: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get signals: {exc}",
         )
 
 

@@ -90,7 +90,7 @@ class TradeSignal(BaseModel):
     quantity: int = Field(..., gt=0)
     price: float = Field(default=0.0, ge=0.0)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-    strategy_id: int = Field(default=0, ge=0)
+    strategy_id: str = Field(default="")
     model_version: str = Field(default="unknown")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     order_type: OrderType = Field(default=OrderType.MARKET)
@@ -105,6 +105,9 @@ class TradeSignal(BaseModel):
 
     def to_order_params(self) -> OrderParams:
         """Convert signal to broker-agnostic :class:`OrderParams`."""
+        # Broker tags are often limited to 8-20 characters; keep the prefix
+        # and truncate the strategy id so validation never fails.
+        raw_tag = f"TF-{self.strategy_id or '0'}"
         return OrderParams(
             symbol=self.symbol,
             quantity=self.quantity,
@@ -113,7 +116,7 @@ class TradeSignal(BaseModel):
             product_type=self.product_type,
             exchange=self.exchange,
             price=self.price,
-            tag=f"TF-{self.strategy_id}",
+            tag=raw_tag[:20],
         )
 
 
@@ -131,7 +134,7 @@ class PositionSnapshot:
     unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0
     entry_time: Optional[datetime] = None
-    strategy_id: int = 0
+    strategy_id: str = ""
     model_version: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 

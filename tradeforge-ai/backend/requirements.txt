@@ -35,6 +35,7 @@ passlib[bcrypt]>=1.7.4              # Password hashing
 python-jose[cryptography]>=3.3.0    # JWT tokens
 python-dotenv>=1.0.0                # Environment variable management
 slowapi>=0.1.9                      # Rate limiting for FastAPI
+bleach>=6.0.0                       # HTML sanitization for user input
 
 # --- Data & ML Core ---
 pandas>=2.1.0                       # DataFrame for OHLCV manipulation

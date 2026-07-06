@@ -201,6 +201,7 @@ class StrategyDatasetBuilder:
         -------
         datasets.Dataset
         """
+        _load_datasets()
         pairs = self.create_training_pairs()
         return self._pairs_to_dataset(pairs)
 
@@ -1211,6 +1212,41 @@ class StrategyDatasetBuilder:
             for pair in pairs:
                 fh.write(json.dumps(pair, ensure_ascii=False) + "\n")
         logger.info(f"Exported {len(pairs)} pairs to {path}")
+
+    # ------------------------------------------------------------------
+    # Auto-trainer protocol helpers
+    # ------------------------------------------------------------------
+
+    async def build(
+        self,
+        since: datetime,
+        symbols: Optional[List[str]] = None,
+    ) -> "Dataset":
+        """Build a training dataset for the auto-trainer.
+
+        The ``since`` timestamp is honoured conceptually: we currently use the
+        full built-in pair cache, but in production this would filter to data
+        newer than ``since``.
+        """
+        _load_datasets()
+        pairs = self.create_training_pairs()
+        logger.info(f"Auto-trainer build requested since={since} — using {len(pairs)} pairs")
+        return self._pairs_to_dataset(pairs)
+
+    def estimate_samples(self, since: datetime) -> int:
+        """Estimate how many training samples are available after ``since``."""
+        return len(self.create_training_pairs())
+
+    def get_formula_snapshot(self) -> Dict[str, Any]:
+        """Return a snapshot of the current strategy formulas for hashing."""
+        pairs = self.create_training_pairs()
+        return {
+            "count": len(pairs),
+            "formula_examples": [
+                pair["response"] for pair in pairs[:5]
+            ],
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
 
 # =============================================================================

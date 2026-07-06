@@ -59,17 +59,6 @@ export interface ActiveStrategy {
   pnlPercent: number;
 }
 
-export const INDICES = [
-  { name: 'NIFTY 50', value: 22456.3, change: 0.45 },
-  { name: 'NIFTY BANK', value: 48712.65, change: -0.23 },
-  { name: 'SENSEX', value: 73892.15, change: 0.38 },
-  { name: 'NIFTY IT', value: 34123.8, change: -0.67 },
-  { name: 'INDIA VIX', value: 14.32, change: 2.15 },
-  { name: 'USD/INR', value: 83.42, change: 0.05 },
-  { name: 'NIFTY FUT', value: 22489.5, change: 0.52 },
-  { name: 'BANKNIFTY FUT', value: 48756.2, change: -0.18 },
-];
-
 export const STOCKS: Stock[] = [
   { symbol: 'RELIANCE', name: 'Reliance Industries', exchange: 'NSE', ltp: 2891.45, change: 23.7, changePercent: 0.82, volume: 4523100, high: 2901.0, low: 2870.2, open: 2875.0, close: 2867.75 },
   { symbol: 'TCS', name: 'Tata Consultancy', exchange: 'NSE', ltp: 4234.6, change: -14.5, changePercent: -0.34, volume: 1234500, high: 4260.0, low: 4210.5, open: 4250.0, close: 4249.1 },

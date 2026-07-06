@@ -163,19 +163,20 @@ class MarketDataIngestor:
                 logger.info(f"[{symbol}] Cache hit — returning {mask.sum()} rows")
                 return cached.loc[mask].copy().reset_index(drop=True)
 
-        # 2. Try NSE
+        # 2. Try NSE (daily-only for now)
         df: Optional[pd.DataFrame] = None
-        try:
-            df = await self._fetch_nse_historical(symbol, from_date, to_date)
-            if df is not None and not df.empty:
-                logger.info(f"[{symbol}] NSE fetch succeeded — {len(df)} rows")
-        except Exception as exc:
-            logger.warning(f"[{symbol}] NSE fetch failed: {exc}")
+        if timeframe == "1d":
+            try:
+                df = await self._fetch_nse_historical(symbol, from_date, to_date)
+                if df is not None and not df.empty:
+                    logger.info(f"[{symbol}] NSE fetch succeeded — {len(df)} rows")
+            except Exception as exc:
+                logger.warning(f"[{symbol}] NSE fetch failed: {exc}")
 
         # 3. Fallback to Yahoo
         if df is None or df.empty:
             try:
-                df = await self._fetch_yahoo_historical(symbol, from_date, to_date)
+                df = await self._fetch_yahoo_historical(symbol, from_date, to_date, timeframe)
                 if df is not None and not df.empty:
                     logger.info(f"[{symbol}] Yahoo fetch succeeded — {len(df)} rows")
             except Exception as exc:
@@ -212,7 +213,7 @@ class MarketDataIngestor:
         days = period_map.get(period, 365)
         to_date = datetime.now()
         from_date = to_date - timedelta(days=days)
-        return await self._fetch_nse_historical(symbol, from_date, to_date)
+        return await self._fetch_nse_historical(symbol, from_date, to_date, timeframe="1d")
 
     async def fetch_yahoo_data(
         self,
@@ -232,7 +233,7 @@ class MarketDataIngestor:
         period_map_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825}
         days = period_map_days.get(period, 365)
         from_date = to_date - timedelta(days=days)
-        return await self._fetch_yahoo_historical(symbol, from_date, to_date)
+        return await self._fetch_yahoo_historical(symbol, from_date, to_date, timeframe="1d")
 
     def save_to_parquet(
         self,
@@ -250,9 +251,21 @@ class MarketDataIngestor:
             symbol: Trading symbol (used in filename).
             timeframe: Timeframe string (used in filename).
         """
+        required = {"timestamp", "open", "high", "low", "close", "volume"}
+        missing = required - set(df.columns)
+        if missing:
+            logger.error(
+                f"Refusing to save invalid Parquet for {symbol}: missing {missing}"
+            )
+            return
+
         safe_symbol = symbol.replace(" ", "_").replace("/", "_")
         filepath = os.path.join(self.data_dir, f"{safe_symbol}_{timeframe}.parquet")
         try:
+            # Ensure timestamp is datetime for consistent round-trips.
+            if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+                df = df.copy()
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
             df.to_parquet(filepath, index=False, compression="zstd")
             logger.debug(f"Saved {len(df)} rows to {filepath}")
         except Exception as exc:
@@ -270,14 +283,24 @@ class MarketDataIngestor:
             timeframe: Timeframe string.
 
         Returns:
-            DataFrame or ``None`` if cache file does not exist.
+            DataFrame or ``None`` if cache file does not exist or is invalid.
         """
+        required = {"timestamp", "open", "high", "low", "close", "volume"}
         safe_symbol = symbol.replace(" ", "_").replace("/", "_")
         filepath = os.path.join(self.data_dir, f"{safe_symbol}_{timeframe}.parquet")
         if not os.path.exists(filepath):
             return None
         try:
             df = pd.read_parquet(filepath)
+            missing = required - set(df.columns)
+            if missing:
+                logger.warning(
+                    f"Invalid Parquet cache for {symbol}: missing {missing}; re-fetching"
+                )
+                return None
+            if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+                df = df.copy()
+                df["timestamp"] = pd.to_datetime(df["timestamp"])
             logger.debug(f"Loaded {len(df)} rows from {filepath}")
             return df
         except Exception as exc:
@@ -351,10 +374,13 @@ class MarketDataIngestor:
         symbol: str,
         from_date: datetime,
         to_date: datetime,
+        timeframe: str = "1d",
     ) -> Optional[pd.DataFrame]:
         """Fetch historical data from NSE India API.
 
-        Uses the ``/api/historical/cm/equity`` endpoint.
+        Uses the ``/api/historical/cm/equity`` endpoint. Currently this
+        endpoint only provides daily data, so non-daily timeframes are
+        ignored and will fall back to Yahoo Finance.
         """
         await self._ensure_nse_session()
 
@@ -418,19 +444,28 @@ class MarketDataIngestor:
         symbol: str,
         from_date: datetime,
         to_date: datetime,
+        timeframe: str = "1d",
     ) -> Optional[pd.DataFrame]:
         """Fetch historical data from Yahoo Finance.
 
         Yahoo Finance uses ``.NS`` suffix for NSE symbols.
         Uses the ``query1.finance.yahoo.com`` endpoint.
         """
+        # Map internal timeframes to Yahoo intervals.
+        yahoo_interval = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "60m", "1d": "1d"}.get(
+            timeframe, "1d"
+        )
+        # Yahoo intraday data is limited; keep date range tight for 1m.
+        if timeframe == "1m" and (to_date - from_date).days > 7:
+            from_date = to_date - timedelta(days=7)
+
         yahoo_symbol = f"{symbol.upper()}.NS"
         from_ts = int(from_date.timestamp())
         to_ts = int(to_date.timestamp())
 
         url = (
             f"https://query1.finance.yahoo.com/v8/finance/chart/{yahoo_symbol}"
-            f"?period1={from_ts}&period2={to_ts}&interval=1d"
+            f"?period1={from_ts}&period2={to_ts}&interval={yahoo_interval}"
             f"&events=history"
         )
         try:

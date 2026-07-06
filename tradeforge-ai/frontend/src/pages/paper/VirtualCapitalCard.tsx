@@ -1,19 +1,33 @@
 import { useState } from 'react';
 import { Pause, Download, RotateCcw } from 'lucide-react';
-import {
-  STARTING_CAPITAL,
-  USED_MARGIN,
-  AVAILABLE_BALANCE,
-  TODAY_PNL,
-  positions,
-} from './data';
+import type { PositionResponse } from '@/types/api';
 
-export default function VirtualCapitalCard() {
+interface CapitalMetrics {
+  portfolio_value: number;
+  used_margin: number;
+  available_balance: number;
+  pnl_today: number;
+  total_unrealized_pnl: number;
+}
+
+interface VirtualCapitalCardProps {
+  metrics: CapitalMetrics;
+  positions: PositionResponse[];
+  loading?: boolean;
+}
+
+export default function VirtualCapitalCard({ metrics, positions, loading }: VirtualCapitalCardProps) {
   const [hoveredReset, setHoveredReset] = useState(false);
 
-  const todayPnLPercent = ((TODAY_PNL / STARTING_CAPITAL) * 100).toFixed(2);
+  const utilizationPct = metrics.portfolio_value > 0
+    ? (metrics.used_margin / metrics.portfolio_value) * 100
+    : 0;
 
-  // Mini area chart data for today's P&L
+  const todayPnLPercent = metrics.portfolio_value > 0
+    ? ((metrics.pnl_today / metrics.portfolio_value) * 100).toFixed(2)
+    : '0.00';
+
+  // Mini area chart data for today's P&L (placeholder until historical P&L API available)
   const areaPoints = [
     [0, 40], [10, 35], [20, 38], [30, 30], [40, 32], [50, 25], [60, 28],
     [70, 20], [80, 22], [90, 15], [100, 18], [110, 10], [120, 12],
@@ -22,42 +36,54 @@ export default function VirtualCapitalCard() {
   const miniAreaPath = areaPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ') +
     ' L150,60 L0,60 Z';
 
+  if (loading) {
+    return (
+      <div className="w-full flex flex-col gap-3 p-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-[#0A0A0F] border border-[rgba(255,255,255,0.06)] rounded-[8px] p-4 h-[120px] animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="w-full flex flex-col gap-3 p-3">
       {/* Virtual Capital Card */}
       <div className="bg-[#0A0A0F] border border-[rgba(255,255,255,0.06)] rounded-[8px] p-4">
         <span className="text-[12px] text-[#64748B] font-medium">Virtual Capital</span>
         <div className="text-[28px] font-mono font-semibold text-[#F1F5F9] mt-1">
-          ₹{STARTING_CAPITAL.toLocaleString('en-IN')}
+          ₹{metrics.portfolio_value.toLocaleString('en-IN')}
         </div>
         <div className="w-full h-px bg-[rgba(255,255,255,0.06)] my-3" />
         <div className="flex justify-between mb-1">
           <span className="text-[13px] text-[#94A3B8]">Used</span>
-          <span className="text-[13px] font-mono text-[#94A3B8]">₹{USED_MARGIN.toLocaleString('en-IN')}</span>
+          <span className="text-[13px] font-mono text-[#94A3B8]">₹{metrics.used_margin.toLocaleString('en-IN')}</span>
         </div>
         <div className="flex justify-between mb-3">
           <span className="text-[13px] text-[#94A3B8]">Available</span>
-          <span className="text-[13px] font-mono text-[#10B981]">₹{AVAILABLE_BALANCE.toLocaleString('en-IN')}</span>
+          <span className="text-[13px] font-mono text-[#10B981]">₹{metrics.available_balance.toLocaleString('en-IN')}</span>
         </div>
         <div className="w-full h-1 bg-[#06060A] rounded-full overflow-hidden">
           <div
             className="h-full bg-[#22D3EE] rounded-full transition-all"
-            style={{ width: `${(USED_MARGIN / STARTING_CAPITAL) * 100}%` }}
+            style={{ width: `${Math.min(utilizationPct, 100)}%` }}
           />
         </div>
         <span className="text-[10px] text-[#64748B] mt-1 block">
-          {(USED_MARGIN / STARTING_CAPITAL * 100).toFixed(1)}% utilized
+          {utilizationPct.toFixed(1)}% utilized
         </span>
       </div>
 
       {/* P&L Summary Card */}
       <div className="bg-[#0A0A0F] border border-[rgba(255,255,255,0.06)] rounded-[8px] p-4">
         <span className="text-[12px] text-[#64748B] font-medium">Today&apos;s P&amp;L</span>
-        <div className="text-[28px] font-mono font-semibold text-[#10B981] mt-1">
-          +₹{TODAY_PNL.toLocaleString('en-IN')}
+        <div className={`text-[28px] font-mono font-semibold mt-1 ${metrics.pnl_today >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+          {metrics.pnl_today >= 0 ? '+' : ''}₹{metrics.pnl_today.toLocaleString('en-IN')}
         </div>
         <div className="flex items-center gap-1.5 mt-1">
-          <span className="text-[13px] text-[#10B981]">+{todayPnLPercent}%</span>
+          <span className={`text-[13px] ${metrics.pnl_today >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+            {metrics.pnl_today >= 0 ? '+' : ''}{todayPnLPercent}%
+          </span>
           <span className="text-[11px] text-[#64748B]">on deployed capital</span>
         </div>
         <svg viewBox="0 0 150 60" className="w-full h-[60px] mt-2" preserveAspectRatio="none">
@@ -86,14 +112,18 @@ export default function VirtualCapitalCard() {
           {positions.length}
         </div>
         <div className="mt-2 space-y-1.5">
-          {positions.slice(0, 3).map(pos => (
-            <div key={pos.id} className="flex items-center justify-between">
-              <span className="text-[11px] font-mono text-[#94A3B8]">{pos.symbol} ×{Math.abs(pos.qty)}</span>
-              <span className={`text-[11px] font-mono font-medium ${pos.pnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                {pos.pnl >= 0 ? '+' : ''}₹{pos.pnl.toLocaleString('en-IN')}
-              </span>
-            </div>
-          ))}
+          {positions.length === 0 ? (
+            <span className="text-[11px] text-[#64748B]">No open positions</span>
+          ) : (
+            positions.slice(0, 3).map(pos => (
+              <div key={pos.symbol} className="flex items-center justify-between">
+                <span className="text-[11px] font-mono text-[#94A3B8]">{pos.symbol} ×{Math.abs(pos.quantity)}</span>
+                <span className={`text-[11px] font-mono font-medium ${pos.unrealized_pnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                  {pos.unrealized_pnl >= 0 ? '+' : ''}₹{pos.unrealized_pnl.toLocaleString('en-IN')}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

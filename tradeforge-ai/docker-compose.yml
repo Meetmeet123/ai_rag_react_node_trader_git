@@ -35,6 +35,60 @@ services:
       retries: 3
       start_period: 60s
 
+  # Celery worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tradeforge-celery-worker
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/tradeforge
+      - MONGODB_DB_NAME=tradeforge
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=false
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./strategies:/app/strategies
+      - ./training/checkpoints:/app/training/checkpoints
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Celery beat scheduler
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tradeforge-celery-beat
+    command: celery -A celery_app beat --loglevel=info
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/tradeforge
+      - MONGODB_DB_NAME=tradeforge
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DEBUG=false
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./strategies:/app/strategies
+      - ./training/checkpoints:/app/training/checkpoints
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   # Frontend (React SPA)
   frontend:
     build:

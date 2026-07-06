@@ -260,9 +260,9 @@ class DocumentProcessor:
 
         tgt = strategy.get("target")
         if tgt:
+            rrr_note = f" (RRR {tgt.get('rrr')})" if tgt.get("rrr") else ""
             parts.append(
-                f"Target: {tgt.get('type', 'fixed')} = {tgt.get('value', '')}"
-                f"{f' (RRR {tgt.get('rrr')})' if tgt.get('rrr') else ''}"
+                f"Target: {tgt.get('type', 'fixed')} = {tgt.get('value', '')}{rrr_note}"
             )
 
         pos = strategy.get("position_sizing")

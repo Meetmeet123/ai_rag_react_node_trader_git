@@ -661,10 +661,12 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """Calculate the full suite of indicators on an OHLCV DataFrame.
 
     Adds the following columns to a *copy* of the input:
-    ``sma_20``, ``sma_50``, ``ema_20``, ``ema_50``, ``rsi_14``,
-    ``macd``, ``macd_signal``, ``macd_hist``, ``bb_upper``, ``bb_middle``,
-    ``bb_lower``, ``atr_14``, ``vwap``, ``stoch_k``, ``stoch_d``, ``adx``,
-    ``obv``.
+    ``sma_20``, ``sma_50``, ``ema_20``, ``ema_50``, ``wma_20``, ``hma_20``,
+    ``rsi_14``, ``macd``, ``macd_signal``, ``macd_hist``, ``stoch_k``,
+    ``stoch_d``, ``cci_20``, ``mfi_14``, ``williams_r_14``, ``bb_upper``,
+    ``bb_middle``, ``bb_lower``, ``atr_14``, ``keltner_upper``,
+    ``keltner_middle``, ``keltner_lower``, ``supertrend_upper``,
+    ``supertrend_lower``, ``psar``, ``adx``, ``vwap``, ``obv``, ``vwma_20``.
 
     Parameters
     ----------
@@ -690,6 +692,8 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     result["sma_50"] = sma(result["close"], 50)
     result["ema_20"] = ema(result["close"], 20)
     result["ema_50"] = ema(result["close"], 50)
+    result["wma_20"] = wma(result["close"], 20)
+    result["hma_20"] = hma(result["close"], 20)
 
     # Momentum
     result["rsi_14"] = rsi(result["close"], 14)
@@ -699,6 +703,19 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     result["stoch_k"], result["stoch_d"] = stochastic(
         result["high"], result["low"], result["close"]
     )
+    result["cci_20"] = cci(
+        result["high"], result["low"], result["close"], 20
+    )
+    result["mfi_14"] = mfi(
+        result["high"],
+        result["low"],
+        result["close"],
+        result["volume"],
+        14,
+    )
+    result["williams_r_14"] = williams_r(
+        result["high"], result["low"], result["close"], 14
+    )
 
     # Volatility
     result["bb_upper"], result["bb_middle"], result["bb_lower"] = bollinger_bands(
@@ -707,15 +724,25 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     result["atr_14"] = atr(
         result["high"], result["low"], result["close"], 14
     )
+    (
+        result["keltner_upper"],
+        result["keltner_middle"],
+        result["keltner_lower"],
+    ) = keltner_channels(result["high"], result["low"], result["close"], 20)
+    result["supertrend_upper"], result["supertrend_lower"] = supertrend(
+        result["high"], result["low"], result["close"], 10
+    )
 
     # Trend
     result["adx"] = adx(result["high"], result["low"], result["close"])
+    result["psar"] = psar(result["high"], result["low"], result["close"])
 
     # Volume
     result["vwap"] = vwap(
         result["high"], result["low"], result["close"], result["volume"]
     )
     result["obv"] = obv(result["close"], result["volume"])
+    result["vwma_20"] = vwma(result["close"], result["volume"], 20)
 
     logger.debug("Indicator calculation complete")
     return result

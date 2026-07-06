@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { recentSignals } from './data';
+import { useEffect, useMemo, useState } from 'react';
 
-// Mock candlestick data for the chart
+// Mock candlestick data for the chart (kept until dedicated chart API is wired)
 const candleData = [
   { o: 2852, h: 2861, l: 2848, c: 2858 },
   { o: 2858, h: 2865, l: 2855, c: 2862 },
@@ -24,6 +23,54 @@ const candleData = [
   { o: 2913, h: 2918, l: 2911, c: 2916 },
   { o: 2916, h: 2920, l: 2914, c: 2918 },
 ];
+
+interface ChartSignalsAreaProps {
+  signals: unknown[];
+  loading?: boolean;
+}
+
+interface DisplaySignal {
+  id: string;
+  time: string;
+  strategy: string;
+  symbol: string;
+  type: 'LONG' | 'SHORT';
+  signal: 'ENTRY' | 'EXIT';
+  price: number;
+  pnl: number | null;
+}
+
+function normalizeSignal(raw: unknown, index: number): DisplaySignal {
+  if (raw && typeof raw === 'object') {
+    const s = raw as Record<string, unknown>;
+    const signalObj = s.signal && typeof s.signal === 'object' ? (s.signal as Record<string, unknown>) : s;
+    const ts = typeof s.timestamp === 'string' ? s.timestamp : (typeof signalObj.timestamp === 'string' ? signalObj.timestamp : '');
+    const time = ts ? new Date(ts).toLocaleTimeString('en-IN', { hour12: false }) : '--:--:--';
+    const direction = String(signalObj.direction || s.direction || 'buy').toLowerCase();
+    const type: 'LONG' | 'SHORT' = direction === 'sell' ? 'SHORT' : 'LONG';
+    const price = Number(signalObj.price || s.price || 0);
+    return {
+      id: String(signalObj.order_id || s.order_id || `sig-${index}`),
+      time,
+      strategy: String(signalObj.strategy_id || s.strategy_id || 'Manual'),
+      symbol: String(signalObj.symbol || s.symbol || 'UNKNOWN'),
+      type,
+      signal: 'ENTRY',
+      price,
+      pnl: typeof s.realized_pnl === 'number' ? s.realized_pnl : null,
+    };
+  }
+  return {
+    id: `sig-${index}`,
+    time: '--:--:--',
+    strategy: 'Unknown',
+    symbol: 'UNKNOWN',
+    type: 'LONG',
+    signal: 'ENTRY',
+    price: 0,
+    pnl: null,
+  };
+}
 
 function CandlestickChart() {
   const width = 600;
@@ -80,7 +127,7 @@ function CandlestickChart() {
               y={bodyTop}
               width={candleWidth}
               height={bodyHeight}
-              fill={isGreen ? color : color}
+              fill={color}
               opacity={0.85}
               rx="0.5"
             />
@@ -121,8 +168,21 @@ function CandlestickChart() {
   );
 }
 
-export default function ChartSignalsArea() {
+export default function ChartSignalsArea({ signals, loading }: ChartSignalsAreaProps) {
   const [hoveredSignal, setHoveredSignal] = useState<string | null>(null);
+  const [symbol] = useState('RELIANCE');
+
+  // Optionally fetch historical data for the selected symbol in the future.
+  useEffect(() => {
+    // Placeholder: wire fetchHistorical(symbol, fromDate, toDate) when chart
+    // rendering needs to be driven by real market candles.
+    void symbol;
+  }, [symbol]);
+
+  const recentSignals = useMemo(
+    () => signals.slice(0, 5).map(normalizeSignal),
+    [signals],
+  );
 
   return (
     <div className="flex-1 flex flex-col bg-[#030305] min-h-0">
@@ -146,51 +206,57 @@ export default function ChartSignalsArea() {
           <button className="text-[11px] text-[#22D3EE] hover:brightness-110 transition-all">View All</button>
         </div>
         <div className="flex-1 overflow-auto">
-          <table className="w-full">
-            <thead className="sticky top-0 bg-[#06060A]">
-              <tr>
-                <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Time</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Strategy</th>
-                <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Symbol</th>
-                <th className="text-center px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Signal</th>
-                <th className="text-right px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Price</th>
-                <th className="text-right px-3 py-1.5 text-[10px] font-medium text-[#64748B]">P&L</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentSignals.map((sig) => (
-                <tr
-                  key={sig.id}
-                  className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-                  onMouseEnter={() => setHoveredSignal(sig.id)}
-                  onMouseLeave={() => setHoveredSignal(null)}
-                  style={{
-                    backgroundColor: hoveredSignal === sig.id ? 'rgba(255,255,255,0.02)' : undefined,
-                  }}
-                >
-                  <td className="px-3 py-1 text-[11px] font-mono text-[#94A3B8] whitespace-nowrap">{sig.time}</td>
-                  <td className="px-3 py-1 text-[11px] text-[#F1F5F9] whitespace-nowrap">{sig.strategy}</td>
-                  <td className="px-3 py-1 text-[11px] font-mono text-[#F1F5F9] whitespace-nowrap">{sig.symbol}</td>
-                  <td className="px-3 py-1 text-center whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] text-[10px] font-semibold ${
-                      (sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT')
-                        ? 'text-[#10B981] bg-[rgba(16,185,129,0.15)]'
-                        : 'text-[#EF4444] bg-[rgba(239,68,68,0.15)]'
-                    }`}>
-                      {(sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT') ? '▲' : '▼'}
-                      {(sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT') ? 'BUY' : 'SELL'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1 text-[11px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">{sig.price.toFixed(2)}</td>
-                  <td className={`px-3 py-1 text-[11px] font-mono text-right font-medium whitespace-nowrap ${
-                    sig.pnl === null ? 'text-[#64748B]' : sig.pnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-                  }`}>
-                    {sig.pnl === null ? '—' : `${sig.pnl >= 0 ? '+' : ''}₹${sig.pnl.toLocaleString('en-IN')}`}
-                  </td>
+          {loading && recentSignals.length === 0 ? (
+            <div className="p-4 text-[11px] text-[#64748B]">Loading signals…</div>
+          ) : recentSignals.length === 0 ? (
+            <div className="p-4 text-[11px] text-[#64748B]">No recent signals</div>
+          ) : (
+            <table className="w-full">
+              <thead className="sticky top-0 bg-[#06060A]">
+                <tr>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Time</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Strategy</th>
+                  <th className="text-left px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Symbol</th>
+                  <th className="text-center px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Signal</th>
+                  <th className="text-right px-3 py-1.5 text-[10px] font-medium text-[#64748B]">Price</th>
+                  <th className="text-right px-3 py-1.5 text-[10px] font-medium text-[#64748B]">P&L</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentSignals.map((sig) => (
+                  <tr
+                    key={sig.id}
+                    className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                    onMouseEnter={() => setHoveredSignal(sig.id)}
+                    onMouseLeave={() => setHoveredSignal(null)}
+                    style={{
+                      backgroundColor: hoveredSignal === sig.id ? 'rgba(255,255,255,0.02)' : undefined,
+                    }}
+                  >
+                    <td className="px-3 py-1 text-[11px] font-mono text-[#94A3B8] whitespace-nowrap">{sig.time}</td>
+                    <td className="px-3 py-1 text-[11px] text-[#F1F5F9] whitespace-nowrap">{sig.strategy}</td>
+                    <td className="px-3 py-1 text-[11px] font-mono text-[#F1F5F9] whitespace-nowrap">{sig.symbol}</td>
+                    <td className="px-3 py-1 text-center whitespace-nowrap">
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[4px] text-[10px] font-semibold ${
+                        (sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT')
+                          ? 'text-[#10B981] bg-[rgba(16,185,129,0.15)]'
+                          : 'text-[#EF4444] bg-[rgba(239,68,68,0.15)]'
+                      }`}>
+                        {(sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT') ? '▲' : '▼'}
+                        {(sig.type === 'LONG' && sig.signal === 'ENTRY') || (sig.type === 'SHORT' && sig.signal === 'EXIT') ? 'BUY' : 'SELL'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1 text-[11px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">{sig.price.toFixed(2)}</td>
+                    <td className={`px-3 py-1 text-[11px] font-mono text-right font-medium whitespace-nowrap ${
+                      sig.pnl === null ? 'text-[#64748B]' : sig.pnl >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
+                    }`}>
+                      {sig.pnl === null ? '—' : `${sig.pnl >= 0 ? '+' : ''}₹${sig.pnl.toLocaleString('en-IN')}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

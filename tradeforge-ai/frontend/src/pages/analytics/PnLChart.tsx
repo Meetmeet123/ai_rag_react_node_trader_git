@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -14,6 +14,7 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts';
+import type { DailyPnlItem, KPIs } from '@/types/api';
 import { dailyPnl } from './data';
 import { WIN_RATE, TOTAL_TRADES, AVG_WIN, AVG_LOSS } from './data';
 
@@ -21,18 +22,6 @@ function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return `${d.getDate()}/${d.getMonth() + 1}`;
 }
-
-const chartData = dailyPnl.map(d => ({
-  date: formatDate(d.date),
-  fullDate: d.date,
-  pnl: d.pnl,
-  cumulative: d.cumulative,
-}));
-
-const winLossData = [
-  { name: 'Wins', value: Math.round(TOTAL_TRADES * WIN_RATE / 100), color: '#10B981' },
-  { name: 'Losses', value: Math.round(TOTAL_TRADES * (100 - WIN_RATE) / 100), color: '#EF4444' },
-];
 
 interface TooltipPayloadItem {
   value: number;
@@ -61,8 +50,39 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
-export default function PnLChart() {
+interface PnLChartProps {
+  dailyPnl?: DailyPnlItem[];
+  kpis?: KPIs;
+}
+
+export default function PnLChart({ dailyPnl: dailyPnlProp, kpis }: PnLChartProps) {
   const [view, setView] = useState<'cumulative' | 'daily'>('cumulative');
+
+  const sourceData = dailyPnlProp ?? dailyPnl;
+
+  const chartData = useMemo(
+    () =>
+      sourceData.map(d => ({
+        date: formatDate(d.date),
+        fullDate: d.date,
+        pnl: d.pnl,
+        cumulative: d.cumulative,
+      })),
+    [sourceData],
+  );
+
+  const totalTrades = kpis?.total_trades ?? TOTAL_TRADES;
+  const winRate = kpis?.win_rate ?? WIN_RATE;
+  const avgWin = kpis?.avg_profit_per_trade ?? AVG_WIN;
+  const avgLoss = kpis?.avg_loss_per_trade ?? AVG_LOSS;
+
+  const winLossData = useMemo(() => {
+    const wins = Math.round(totalTrades * winRate / 100);
+    return [
+      { name: 'Wins', value: wins, color: '#10B981' },
+      { name: 'Losses', value: totalTrades - wins, color: '#EF4444' },
+    ];
+  }, [totalTrades, winRate]);
 
   return (
     <div className="flex gap-4">
@@ -190,7 +210,7 @@ export default function PnLChart() {
               Win Rate
             </text>
             <text x="50%" y="58%" textAnchor="middle" dominantBaseline="central" fill="#F1F5F9" fontSize="18" fontWeight="600" fontFamily="JetBrains Mono">
-              {WIN_RATE}%
+              {winRate}%
             </text>
           </PieChart>
         </ResponsiveContainer>
@@ -209,15 +229,15 @@ export default function PnLChart() {
         <div className="mt-4 space-y-2 pt-3 border-t border-[rgba(255,255,255,0.06)]">
           <div className="flex justify-between">
             <span className="text-[12px] text-[#94A3B8]">Avg Win</span>
-            <span className="text-[12px] font-mono font-medium text-[#10B981]">+₹{AVG_WIN.toLocaleString('en-IN')}</span>
+            <span className="text-[12px] font-mono font-medium text-[#10B981]">+₹{avgWin.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-[12px] text-[#94A3B8]">Avg Loss</span>
-            <span className="text-[12px] font-mono font-medium text-[#EF4444]">-₹{Math.abs(AVG_LOSS).toLocaleString('en-IN')}</span>
+            <span className="text-[12px] font-mono font-medium text-[#EF4444]">-₹{Math.abs(avgLoss).toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-[12px] text-[#94A3B8]">Payoff Ratio</span>
-            <span className="text-[12px] font-mono font-medium text-[#F1F5F9]">{(AVG_WIN / Math.abs(AVG_LOSS)).toFixed(2)}</span>
+            <span className="text-[12px] font-mono font-medium text-[#F1F5F9]">{(avgWin / Math.abs(avgLoss)).toFixed(2)}</span>
           </div>
         </div>
       </div>

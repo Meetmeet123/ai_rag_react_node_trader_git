@@ -1,16 +1,73 @@
-import { useState } from 'react';
-import { paperOrders } from './data';
+import { useMemo, useState } from 'react';
 
-export default function PaperOrderBook() {
+interface PaperOrderBookProps {
+  orders: unknown[];
+  loading?: boolean;
+}
+
+interface DisplayOrder {
+  id: string;
+  time: string;
+  symbol: string;
+  type: 'BUY' | 'SELL';
+  qty: number;
+  price: number;
+  status: string;
+  strategy: string;
+}
+
+function normalizeOrder(raw: unknown, index: number): DisplayOrder {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      id: `ord-${index}`,
+      time: '--:--:--',
+      symbol: 'UNKNOWN',
+      type: 'BUY',
+      qty: 0,
+      price: 0,
+      status: 'Filled',
+      strategy: 'Unknown',
+    };
+  }
+
+  const o = raw as Record<string, unknown>;
+  const ts = typeof o.timestamp === 'string' ? o.timestamp : '';
+  const time = ts ? new Date(ts).toLocaleTimeString('en-IN', { hour12: false }) : '--:--:--';
+
+  const side = String(o.side || o.type || 'buy').toUpperCase();
+  const type: 'BUY' | 'SELL' = side === 'SELL' ? 'SELL' : 'BUY';
+
+  return {
+    id: String(o.order_id || `ord-${index}`),
+    time,
+    symbol: String(o.symbol || 'UNKNOWN'),
+    type,
+    qty: Number(o.quantity || o.qty || 0),
+    price: Number(o.price || o.avg_price || 0),
+    status: String(o.status || 'Filled'),
+    strategy: String(o.strategy_id || o.strategy || 'Manual'),
+  };
+}
+
+export default function PaperOrderBook({ orders, loading }: PaperOrderBookProps) {
   const [tab, setTab] = useState<'orders' | 'bids'>('orders');
 
+  const displayOrders = useMemo(() => orders.map(normalizeOrder), [orders]);
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Filled': return 'text-[#10B981] bg-[rgba(16,185,129,0.15)]';
-      case 'Partial': return 'text-[#F59E0B] bg-[rgba(245,158,11,0.15)]';
-      case 'Pending': return 'text-[#60A5FA] bg-[rgba(96,165,250,0.15)]';
-      case 'Rejected': return 'text-[#EF4444] bg-[rgba(239,68,68,0.15)]';
-      case 'Cancelled': return 'text-[#64748B] bg-[#06060A]';
+    switch (status.toLowerCase()) {
+      case 'filled':
+      case 'complete':
+        return 'text-[#10B981] bg-[rgba(16,185,129,0.15)]';
+      case 'partial':
+        return 'text-[#F59E0B] bg-[rgba(245,158,11,0.15)]';
+      case 'pending':
+      case 'open':
+        return 'text-[#60A5FA] bg-[rgba(96,165,250,0.15)]';
+      case 'rejected':
+        return 'text-[#EF4444] bg-[rgba(239,68,68,0.15)]';
+      case 'cancelled':
+        return 'text-[#64748B] bg-[#06060A]';
       default: return 'text-[#64748B] bg-[#06060A]';
     }
   };
@@ -41,52 +98,58 @@ export default function PaperOrderBook() {
             Order Book
           </button>
         </div>
-        <span className="ml-auto text-[11px] text-[#64748B]">{paperOrders.length} orders</span>
+        <span className="ml-auto text-[11px] text-[#64748B]">{displayOrders.length} orders</span>
       </div>
 
       {tab === 'orders' ? (
         <div className="h-[200px] overflow-auto">
-          <table className="w-full">
-            <thead className="sticky top-0 bg-[#06060A]">
-              <tr>
-                <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Order ID</th>
-                <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Time</th>
-                <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Symbol</th>
-                <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Type</th>
-                <th className="text-right px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Qty</th>
-                <th className="text-right px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Price</th>
-                <th className="text-center px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Status</th>
-                <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Strategy</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paperOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-                >
-                  <td className="px-4 py-1.5 text-[11px] font-mono text-[#64748B] whitespace-nowrap">{order.id}</td>
-                  <td className="px-4 py-1.5 text-[12px] font-mono text-[#94A3B8] whitespace-nowrap">{order.time}</td>
-                  <td className="px-4 py-1.5 text-[12px] font-mono text-[#F1F5F9] whitespace-nowrap">{order.symbol}</td>
-                  <td className="px-4 py-1.5 whitespace-nowrap">
-                    <span className={`text-[11px] font-semibold ${
-                      order.type === 'BUY' ? 'text-[#10B981]' : 'text-[#EF4444]'
-                    }`}>
-                      {order.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-1.5 text-[12px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">{order.qty}</td>
-                  <td className="px-4 py-1.5 text-[12px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">₹{order.price.toFixed(2)}</td>
-                  <td className="px-4 py-1.5 text-center whitespace-nowrap">
-                    <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-1.5 text-[11px] text-[#94A3B8] whitespace-nowrap">{order.strategy}</td>
+          {loading && displayOrders.length === 0 ? (
+            <div className="p-4 text-[12px] text-[#64748B]">Loading orders…</div>
+          ) : displayOrders.length === 0 ? (
+            <div className="p-4 text-[12px] text-[#64748B]">No orders executed yet.</div>
+          ) : (
+            <table className="w-full">
+              <thead className="sticky top-0 bg-[#06060A]">
+                <tr>
+                  <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Order ID</th>
+                  <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Time</th>
+                  <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Symbol</th>
+                  <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Type</th>
+                  <th className="text-right px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Qty</th>
+                  <th className="text-right px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Price</th>
+                  <th className="text-center px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Status</th>
+                  <th className="text-left px-4 py-2 text-[11px] font-medium text-[#64748B] whitespace-nowrap">Strategy</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {displayOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+                  >
+                    <td className="px-4 py-1.5 text-[11px] font-mono text-[#64748B] whitespace-nowrap">{order.id}</td>
+                    <td className="px-4 py-1.5 text-[12px] font-mono text-[#94A3B8] whitespace-nowrap">{order.time}</td>
+                    <td className="px-4 py-1.5 text-[12px] font-mono text-[#F1F5F9] whitespace-nowrap">{order.symbol}</td>
+                    <td className="px-4 py-1.5 whitespace-nowrap">
+                      <span className={`text-[11px] font-semibold ${
+                        order.type === 'BUY' ? 'text-[#10B981]' : 'text-[#EF4444]'
+                      }`}>
+                        {order.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-1.5 text-[12px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">{order.qty}</td>
+                    <td className="px-4 py-1.5 text-[12px] font-mono text-right text-[#F1F5F9] whitespace-nowrap">₹{order.price.toFixed(2)}</td>
+                    <td className="px-4 py-1.5 text-center whitespace-nowrap">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-1.5 text-[11px] text-[#94A3B8] whitespace-nowrap">{order.strategy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       ) : (
         <div className="h-[200px] flex">

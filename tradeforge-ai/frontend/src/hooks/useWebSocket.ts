@@ -1,78 +1,52 @@
 /**
- * TradeForge AI — React hook for WebSocket streams.
+ * TradeForge AI — React hook for Socket.IO real-time streams.
  *
- * Wraps the native `WebSocket` API with connection state tracking,
- * automatic reconnect, JSON message parsing, and a typed sender.
- *
- * Note: The backend Socket.IO server is not yet mounted; until then
- * this hook gracefully degrades to a "closed" state and can be pointed
- * at any plain WebSocket endpoint once available.
+ * Wraps the socket.io-client API with connection state tracking,
+ * automatic reconnect (via Socket.IO built-ins), JSON message parsing,
+ * room subscription, and a typed sender.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
 export type WebSocketReadyState = 'connecting' | 'open' | 'closing' | 'closed' | 'error';
 
 export interface UseWebSocketOptions {
   url: string | null;
-  reconnect?: boolean;
-  reconnectIntervalMs?: number;
-  maxReconnects?: number;
+  room?: string;
   onMessage?: (data: unknown) => void;
-  onError?: (event: Event) => void;
-  onOpen?: (event: Event) => void;
-  onClose?: (event: CloseEvent) => void;
+  onError?: (error: Error) => void;
+  onOpen?: () => void;
+  onClose?: (reason: string) => void;
 }
 
 export interface UseWebSocketReturn {
   readyState: WebSocketReadyState;
   lastMessage: unknown | null;
   sendMessage: (message: unknown) => void;
-  error: Event | null;
+  error: Error | null;
   connect: () => void;
   disconnect: () => void;
 }
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
-  const {
-    url,
-    reconnect = true,
-    reconnectIntervalMs = 3000,
-    maxReconnects = 5,
-    onMessage,
-    onError,
-    onOpen,
-    onClose,
-  } = options;
+  const { url, room, onMessage, onError, onOpen, onClose } = options;
 
   const [readyState, setReadyState] = useState<WebSocketReadyState>('closed');
   const [lastMessage, setLastMessage] = useState<unknown | null>(null);
-  const [error, setError] = useState<Event | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectCountRef = useRef(0);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const intentionalCloseRef = useRef(false);
-
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-  }, []);
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true;
-    clearReconnectTimer();
-    if (wsRef.current) {
-      if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
-        wsRef.current.close();
-      }
-      wsRef.current = null;
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
     }
     setReadyState('closed');
-    reconnectCountRef.current = 0;
-  }, [clearReconnectTimer]);
+  }, []);
 
   const connect = useCallback(() => {
     if (!url) return;
@@ -81,51 +55,55 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     intentionalCloseRef.current = false;
 
     try {
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
+      const socket = io(url, {
+        transports: ['websocket'],
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+      });
+      socketRef.current = socket;
       setReadyState('connecting');
 
-      ws.onopen = (event) => {
+      socket.on('connect', () => {
         setReadyState('open');
         setError(null);
-        reconnectCountRef.current = 0;
-        onOpen?.(event);
-      };
-
-      ws.onmessage = (event) => {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(event.data);
-        } catch {
-          parsed = event.data;
+        onOpen?.();
+        if (room) {
+          socket.emit('subscribe', { room });
         }
-        setLastMessage(parsed);
-        onMessage?.(parsed);
-      };
+      });
 
-      ws.onerror = (event) => {
-        setReadyState('error');
-        setError(event);
-        onError?.(event);
-      };
-
-      ws.onclose = (event) => {
+      socket.on('disconnect', (reason) => {
         setReadyState('closed');
-        onClose?.(event);
+        onClose?.(reason);
+      });
 
-        if (!intentionalCloseRef.current && reconnect && reconnectCountRef.current < maxReconnects) {
-          reconnectCountRef.current += 1;
-          reconnectTimerRef.current = setTimeout(() => {
-            connect();
-          }, reconnectIntervalMs);
-        }
-      };
+      socket.on('connect_error', (err) => {
+        setReadyState('error');
+        setError(err);
+        onError?.(err);
+      });
+
+      socket.on('trade', (data: unknown) => {
+        setLastMessage(data);
+        onMessage?.(data);
+      });
+
+      socket.on('portfolio_update', (data: unknown) => {
+        setLastMessage(data);
+        onMessage?.(data);
+      });
     } catch (err) {
       setReadyState('error');
+      const wrapped = err instanceof Error ? err : new Error(String(err));
+      setError(wrapped);
+      onError?.(wrapped);
       // eslint-disable-next-line no-console
-      console.error('WebSocket connection error:', err);
+      console.error('Socket.IO connection error:', err);
     }
-  }, [url, reconnect, reconnectIntervalMs, maxReconnects, onMessage, onError, onOpen, onClose, disconnect]);
+  }, [url, room, onMessage, onError, onOpen, onClose, disconnect]);
 
   useEffect(() => {
     if (url) {
@@ -138,14 +116,13 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
   const sendMessage = useCallback(
     (message: unknown) => {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
+      const socket = socketRef.current;
+      if (!socket || !socket.connected) {
         // eslint-disable-next-line no-console
-        console.warn('Cannot send WebSocket message: connection is not open');
+        console.warn('Cannot send Socket.IO message: connection is not open');
         return;
       }
-      const payload = typeof message === 'string' ? message : JSON.stringify(message);
-      ws.send(payload);
+      socket.emit('message', message);
     },
     [],
   );

@@ -6,25 +6,24 @@ import Step1_StrategySelect from './backtest/Step1_StrategySelect';
 import Step2_Parameters from './backtest/Step2_Parameters';
 import Step3_Running from './backtest/Step3_Running';
 import Step4_Results from './backtest/Step4_Results';
-import { apiBacktestRunToResult } from './backtest/adapter';
+
 import type { BacktestStep, BacktestConfig, BacktestResult } from './backtest/types';
+import type { Strategy } from '@/types/api';
 import { DEFAULT_CONFIG } from './backtest/mockData';
 import {
   fetchStrategies,
   fetchStrategy,
   runBacktest,
-  fetchBacktest,
 } from '@/lib/api';
-import type { Strategy as ApiStrategy } from '@/types/api';
+
 
 export default function Backtest() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<BacktestStep>(1);
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
-  const [selectedStrategy, setSelectedStrategy] = useState<ApiStrategy | null>(null);
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
-  const [strategies, setStrategies] = useState<ApiStrategy[]>([]);
+  const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [strategiesLoading, setStrategiesLoading] = useState(true);
   const [strategiesError, setStrategiesError] = useState<string | null>(null);
   const [backtestId, setBacktestId] = useState<string | null>(null);
@@ -63,7 +62,6 @@ export default function Backtest() {
     const strategy = strategies.find((s) => s.id === strategyIdFromQuery);
     if (strategy) {
       setSelectedStrategyId(strategy.id);
-      setSelectedStrategy(strategy);
       setConfig((prev) => ({
         ...prev,
         strategyId: strategy.id,
@@ -79,7 +77,6 @@ export default function Backtest() {
     setSelectedStrategyId(id);
     try {
       const strategy = await fetchStrategy(id);
-      setSelectedStrategy(strategy);
       setConfig((prev) => ({
         ...prev,
         strategyId: strategy.id,

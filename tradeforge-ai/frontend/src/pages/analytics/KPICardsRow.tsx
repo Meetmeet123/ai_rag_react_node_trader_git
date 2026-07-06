@@ -1,4 +1,5 @@
 import { TrendingUp, Activity, Target, TrendingDown } from 'lucide-react';
+import type { KPIs } from '@/types/api';
 import {
   NET_PNL,
   WIN_RATE,
@@ -43,13 +44,22 @@ function KPICard({ icon, label, value, change, changeColor, accentColor, gradien
   );
 }
 
-export default function KPICardsRow() {
+interface KPICardsRowProps {
+  kpis?: KPIs;
+}
+
+export default function KPICardsRow({ kpis }: KPICardsRowProps) {
+  const netPnl = kpis?.net_pnl ?? NET_PNL;
+  const totalTrades = kpis?.total_trades ?? TOTAL_TRADES;
+  const winRate = kpis?.win_rate ?? WIN_RATE;
+  const maxDrawdown = kpis?.max_drawdown ?? MAX_DRAWDOWN;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <KPICard
         icon={<TrendingUp size={20} />}
         label="Net P&L"
-        value={`+₹${NET_PNL.toLocaleString('en-IN')}`}
+        value={`${netPnl >= 0 ? '+' : ''}₹${Math.abs(netPnl).toLocaleString('en-IN')}`}
         change="+12.5% vs last period"
         changeColor="text-[#10B981]"
         accentColor="#10B981"
@@ -59,7 +69,7 @@ export default function KPICardsRow() {
       <KPICard
         icon={<Activity size={20} />}
         label="Total Trades"
-        value={TOTAL_TRADES.toString()}
+        value={totalTrades.toString()}
         change="+8 vs last period"
         changeColor="text-[#94A3B8]"
         accentColor="#22D3EE"
@@ -68,7 +78,7 @@ export default function KPICardsRow() {
       <KPICard
         icon={<Target size={20} />}
         label="Win Rate"
-        value={`${WIN_RATE}%`}
+        value={`${winRate}%`}
         change="+3.2% vs last period"
         changeColor="text-[#94A3B8]"
         accentColor="#A78BFA"
@@ -77,7 +87,7 @@ export default function KPICardsRow() {
       <KPICard
         icon={<TrendingDown size={20} />}
         label="Max Drawdown"
-        value={`-₹${Math.abs(MAX_DRAWDOWN).toLocaleString('en-IN')}`}
+        value={`-₹${Math.abs(maxDrawdown).toLocaleString('en-IN')}`}
         change="-2.1% vs last period"
         changeColor="text-[#EF4444]"
         accentColor="#EF4444"

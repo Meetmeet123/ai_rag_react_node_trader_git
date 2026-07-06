@@ -1,8 +1,41 @@
 {
   "last_training_time": null,
   "last_formula_hash": "",
-  "consecutive_failures": 0,
-  "next_job_id": 1,
-  "jobs_history": [],
-  "saved_at": "2026-07-05T22:02:42.355355"
+  "consecutive_failures": 2,
+  "next_job_id": 3,
+  "jobs_history": [
+    {
+      "job_id": 1,
+      "trigger_reason": "new_data_threshold",
+      "started_at": "2026-07-06T06:52:53.093203",
+      "completed_at": "2026-07-06T06:52:53.102406",
+      "status": "failed",
+      "data_samples": 0,
+      "epochs_trained": 0,
+      "final_loss": 0.0,
+      "validation_loss": 0.0,
+      "model_version_id": null,
+      "checkpoint_path": "",
+      "error_message": "Dataset build failed: 'StrategyDatasetBuilder' object has no attribute 'build'",
+      "backtest_metrics": {},
+      "deployed": false
+    },
+    {
+      "job_id": 2,
+      "trigger_reason": "new_data_threshold",
+      "started_at": "2026-07-06T07:16:43.196047",
+      "completed_at": "2026-07-06T07:16:43.205663",
+      "status": "failed",
+      "data_samples": 0,
+      "epochs_trained": 0,
+      "final_loss": 0.0,
+      "validation_loss": 0.0,
+      "model_version_id": null,
+      "checkpoint_path": "",
+      "error_message": "Dataset build failed: 'StrategyDatasetBuilder' object has no attribute 'build'",
+      "backtest_metrics": {},
+      "deployed": false
+    }
+  ],
+  "saved_at": "2026-07-06T07:37:28.493069"
 }
