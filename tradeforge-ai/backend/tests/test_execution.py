@@ -17,21 +17,20 @@ from tasks.execution import generate_signals
 def _make_ohlcv(rows: int = 110) -> pd.DataFrame:
     """Return a deterministic OHLCV DataFrame for condition evaluation."""
     base = 100.0
-    timestamps = [
-        datetime.utcnow() - timedelta(days=rows - i)
-        for i in range(rows)
-    ]
+    timestamps = [datetime.utcnow() - timedelta(days=rows - i) for i in range(rows)]
     data = []
     for idx, ts in enumerate(timestamps):
         close = base + idx * 0.5
-        data.append({
-            "timestamp": ts,
-            "open": close - 1.0,
-            "high": close + 1.0,
-            "low": close - 1.5,
-            "close": close,
-            "volume": 1000 + idx,
-        })
+        data.append(
+            {
+                "timestamp": ts,
+                "open": close - 1.0,
+                "high": close + 1.0,
+                "low": close - 1.5,
+                "close": close,
+                "volume": 1000 + idx,
+            }
+        )
     return pd.DataFrame(data)
 
 
@@ -97,9 +96,7 @@ def bypass_market_hours():
     from core.risk_manager import RiskCheckResult, RiskManager
 
     original = RiskManager._check_market_hours
-    RiskManager._check_market_hours = lambda self, now: RiskCheckResult(
-        allowed=True
-    )
+    RiskManager._check_market_hours = lambda self, now: RiskCheckResult(allowed=True)
     yield
     RiskManager._check_market_hours = original
 

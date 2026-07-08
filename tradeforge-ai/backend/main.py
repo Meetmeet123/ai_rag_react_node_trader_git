@@ -33,6 +33,21 @@ from config import settings
 from database.connection import init_db, close_db
 from websocket_server import socket_app
 
+from routers import (
+    auth,
+    analytics,
+    audit as audit_router,
+    backtest,
+    brokers,
+    execute,
+    llm,
+    market,
+    models,
+    settings as settings_router,
+    strategies,
+    train,
+)
+
 # ---------------------------------------------------------------------------
 # Configure structured logging
 # ---------------------------------------------------------------------------
@@ -88,7 +103,13 @@ async def lifespan(app: FastAPI):
     if settings.SENTRY_DSN:
         import sentry_sdk
 
-        sentry_sdk.init(dsn=settings.SENTRY_DSN, traces_sample_rate=0.2)
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            traces_sample_rate=0.2,
+            release=os.environ.get("SENTRY_RELEASE", "2.0.0"),
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+        )
+        sentry_sdk.set_tag("app", settings.APP_NAME)
         logger.info("Sentry error reporting initialized")
 
     # -- Initialize database ------------------------------------------------
@@ -119,10 +140,14 @@ async def lifespan(app: FastAPI):
     services["broker"] = PaperBroker()
     logger.info("Paper Broker initialized")
 
-    services["risk"] = RiskManager({
-        "daily_loss_limit": settings.MAX_DAILY_LOSS_PCT / 100 * settings.DEFAULT_CAPITAL,
-        "max_positions": settings.MAX_POSITIONS,
-    })
+    services["risk"] = RiskManager(
+        {
+            "daily_loss_limit": settings.MAX_DAILY_LOSS_PCT
+            / 100
+            * settings.DEFAULT_CAPITAL,
+            "max_positions": settings.MAX_POSITIONS,
+        }
+    )
     logger.info("Risk Manager initialized")
 
     services["registry"] = ModelRegistry(models_dir=settings.MODELS_DIR)
@@ -147,12 +172,12 @@ async def lifespan(app: FastAPI):
     async def _load_active_broker() -> None:
         """Replace the paper broker with a live broker if a config exists."""
         from core.broker.factory import create_broker_from_config
-        from database.models import BrokerConfig, BrokerName
+        from database.models import BrokerConfig, BrokerName, User
 
         try:
             active_config = await BrokerConfig.find_one(
-                BrokerConfig.is_active == True,
-                BrokerConfig.is_paper == False,
+                {"is_active": True},
+                {"is_paper": False},
                 BrokerConfig.broker != BrokerName.PAPER,
             )
             if active_config is None:
@@ -163,6 +188,22 @@ async def lifespan(app: FastAPI):
                 "Active live broker config found | broker={}",
                 active_config.broker.value,
             )
+
+            # Enforce live-trading approval for the broker config owner.
+            live_approved = False
+            if active_config.user_id is not None:
+                owner = await User.get(active_config.user_id)
+                if owner is not None:
+                    live_approved = owner.is_approved_for_live
+
+            if not live_approved:
+                logger.warning(
+                    "Live broker config found but user {} is not approved for live trading; "
+                    "staying in paper mode",
+                    active_config.user_id,
+                )
+                return
+
             live_broker = create_broker_from_config(active_config)
             connected = await live_broker.connect()
             if connected:
@@ -171,6 +212,7 @@ async def lifespan(app: FastAPI):
                     broker=live_broker,
                     risk_manager=services["risk"],
                     mode=ExecutionMode.LIVE,
+                    live_approved=True,
                 )
                 # Carry over callbacks
                 new_engine.callbacks["on_trade"] = engine.callbacks.get("on_trade")
@@ -202,14 +244,20 @@ async def lifespan(app: FastAPI):
         await emit_event(
             "trade",
             {
-                "signal": signal.model_dump() if hasattr(signal, "model_dump") else signal,
-                "result": result.model_dump() if hasattr(result, "model_dump") else result,
+                "signal": (
+                    signal.model_dump() if hasattr(signal, "model_dump") else signal
+                ),
+                "result": (
+                    result.model_dump() if hasattr(result, "model_dump") else result
+                ),
             },
             room="paper",
         )
         current_engine = services.get("execution")
         if current_engine is not None:
-            await emit_event("portfolio_update", current_engine.get_portfolio_summary(), room="paper")
+            await emit_event(
+                "portfolio_update", current_engine.get_portfolio_summary(), room="paper"
+            )
 
     engine.callbacks["on_trade"] = _emit_trade_update
     logger.info("WebSocket broadcast callbacks wired")
@@ -228,14 +276,28 @@ async def lifespan(app: FastAPI):
         logger.warning("RAG engine failed to initialize: {}", exc)
 
     # -- Initialize auto-training pipeline ----------------------------------
+    from core.validation_backtest_adapter import ValidationBacktestAdapter
+
+    validation_adapter = ValidationBacktestAdapter(
+        ingestor=services["ingestor"],
+        backtest_engine=services["backtest"],
+    )
+
+    from core.artifact_store import ArtifactStore
+    from core.drift_detector import DriftDetector
+
     pipeline = AutoTrainingPipeline(
         llm_engine=services["llm"],
-        backtest_engine=services["backtest"],
+        backtest_engine=validation_adapter,
         model_registry=services["registry"],
         dataset_builder=services["dataset_builder"],
         training_interval_minutes=settings.TRAINING_INTERVAL_MINUTES,
         models_dir=settings.MODELS_DIR,
+        artifact_store=ArtifactStore(),
+        drift_detector=DriftDetector(threshold=settings.DRIFT_THRESHOLD),
+        shadow_mode=settings.MODEL_SHADOW_MODE,
     )
+    await pipeline.initialize()
     services["pipeline"] = pipeline
     logger.info(
         "Auto-Training Pipeline initialized ({}-min interval)",
@@ -248,6 +310,7 @@ async def lifespan(app: FastAPI):
     from routers import execute as execute_router
     from routers import market as market_router
     from routers import brokers as brokers_router
+    from routers import llm as llm_router
 
     train_router.set_pipeline_instance(pipeline)
     train_router.set_registry_instance(services["registry"])
@@ -257,18 +320,14 @@ async def lifespan(app: FastAPI):
     market_router.set_ingestor_instance(services["ingestor"])
     brokers_router.set_broker_instance(services["broker"])
     brokers_router.set_execution_engine(services["execution"])
+    llm_router.set_llm_instance(services["llm"])
+    llm_router.set_rag_instance(services.get("rag"))
+    llm_router.set_registry_instance(services["registry"])
 
     logger.info("Router singletons injected")
 
     # -- Try to load an active live broker configuration ----------------------
     await _load_active_broker()
-
-    # -- Start auto-training (if configured) --------------------------------
-    try:
-        pipeline.start()
-        logger.info("Auto-training scheduler started")
-    except Exception as exc:
-        logger.warning("Auto-training scheduler failed to start: {}", exc)
 
     logger.info("All services initialized successfully")
     logger.info("TradeForge AI is ready")
@@ -283,7 +342,7 @@ async def lifespan(app: FastAPI):
     # Stop auto-training
     try:
         if "pipeline" in services:
-            services["pipeline"].stop()
+            await services["pipeline"].stop()
             logger.info("Auto-training scheduler stopped")
     except Exception as exc:
         logger.warning("Error stopping auto-training: {}", exc)
@@ -348,7 +407,9 @@ app = FastAPI(
 # Security & CORS configuration
 # ---------------------------------------------------------------------------
 
-_origins = [origin.strip() for origin in settings.FRONTEND_URL.split(",") if origin.strip()]
+_origins = [
+    origin.strip() for origin in settings.FRONTEND_URL.split(",") if origin.strip()
+]
 if settings.DEBUG:
     _origins.extend(["http://localhost:3000", "http://127.0.0.1:5173"])
 
@@ -370,9 +431,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=()"
+        )
         if not settings.DEBUG:
-            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains; preload"
+            )
         return response
 
 
@@ -383,7 +448,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.max_requests = max_requests
         self.window_seconds = window_seconds
-        self.requests: Dict[str, Deque[float]] = defaultdict(lambda: Deque(maxlen=max_requests * 2))
+        self.requests: Dict[str, Deque[float]] = defaultdict(
+            lambda: Deque(maxlen=max_requests * 2)
+        )
 
     async def dispatch(self, request: Request, call_next):
         # Exclude the Prometheus metrics endpoint from rate limiting.
@@ -398,7 +465,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if len(window) >= self.max_requests:
             return JSONResponse(
                 status_code=429,
-                content={"error": True, "status_code": 429, "detail": "Rate limit exceeded. Please slow down."},
+                content={
+                    "error": True,
+                    "status_code": 429,
+                    "detail": "Rate limit exceeded. Please slow down.",
+                },
             )
         window.append(now)
         return await call_next(request)
@@ -497,7 +568,9 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
             if "application/json" in content_type:
                 content_length = request.headers.get("content-length")
                 try:
-                    too_large = content_length is not None and int(content_length) > 2048
+                    too_large = (
+                        content_length is not None and int(content_length) > 2048
+                    )
                 except ValueError:
                     too_large = False
 
@@ -566,8 +639,6 @@ app.mount("/metrics", make_asgi_app())
 # ---------------------------------------------------------------------------
 # Include routers
 # ---------------------------------------------------------------------------
-
-from routers import auth, analytics, settings as settings_router, llm, strategies, backtest, train, models, execute, market, brokers, audit as audit_router
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
@@ -688,7 +759,7 @@ async def system_status() -> Dict[str, Any]:
                     "f1_score": av.f1_score,
                 }
 
-        pipeline_status = pipeline.get_status() if pipeline else {}
+        pipeline_status = await pipeline.get_status() if pipeline else {}
 
         return {
             "app": settings.APP_NAME,
@@ -706,11 +777,15 @@ async def system_status() -> Dict[str, Any]:
             "active_model": active_model,
             "pipeline": pipeline_status,
             "risk_summary": risk.get_risk_summary() if risk else {},
-            "broker": {
-                "name": broker.name if broker else "unknown",
-                "connected": broker.is_connected if broker else False,
-                "balance": broker.get_balance() if broker else 0,
-            } if broker else {},
+            "broker": (
+                {
+                    "name": broker.name if broker else "unknown",
+                    "connected": broker.is_connected if broker else False,
+                    "balance": broker.get_balance() if broker else 0,
+                }
+                if broker
+                else {}
+            ),
             "model_versions": registry.get_version_count() if registry else 0,
         }
 

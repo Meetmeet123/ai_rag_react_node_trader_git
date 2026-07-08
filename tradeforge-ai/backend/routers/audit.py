@@ -85,11 +85,15 @@ def _audit_to_response(log: AuditLog) -> AuditLogResponse:
     description="Return a paginated list of audit log entries. Admin only.",
 )
 async def list_audit_logs(
-    limit: int = Query(default=50, ge=1, le=500, description="Number of logs to return"),
+    limit: int = Query(
+        default=50, ge=1, le=500, description="Number of logs to return"
+    ),
     offset: int = Query(default=0, ge=0, description="Number of logs to skip"),
     user_id: Optional[str] = Query(default=None, description="Filter by user ID"),
     action: Optional[str] = Query(default=None, description="Filter by HTTP method"),
-    resource: Optional[str] = Query(default=None, description="Filter by resource path"),
+    resource: Optional[str] = Query(
+        default=None, description="Filter by resource path"
+    ),
     current_user: User = Depends(get_current_admin),
 ) -> AuditLogListResponse:
     """List audit logs with optional filters. Restricted to admin users."""
@@ -112,12 +116,7 @@ async def list_audit_logs(
             query = query.find(AuditLog.resource == resource)
 
         total = await query.count()
-        logs = (
-            await query.sort(-AuditLog.timestamp)
-            .skip(offset)
-            .limit(limit)
-            .to_list()
-        )
+        logs = await query.sort(-AuditLog.timestamp).skip(offset).limit(limit).to_list()
 
         logger.debug(
             "Admin {} listed audit logs | total={} returned={}",

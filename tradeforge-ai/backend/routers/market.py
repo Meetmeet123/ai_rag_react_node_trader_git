@@ -21,7 +21,7 @@ from loguru import logger
 from core.indicators import (
     calculate_all_indicators,
 )
-from core.market_data.ingestor import MarketDataIngestor, NIFTY50_CONSTITUENTS
+from core.market_data.ingestor import MarketDataIngestor
 
 router = APIRouter()
 
@@ -193,9 +193,11 @@ async def get_ltp(symbol: str) -> LTPResponse:
             return LTPResponse(
                 symbol=symbol.upper(),
                 price=float(latest["close"]),
-                timestamp=latest["timestamp"].isoformat()
-                if hasattr(latest["timestamp"], "isoformat")
-                else str(latest["timestamp"]),
+                timestamp=(
+                    latest["timestamp"].isoformat()
+                    if hasattr(latest["timestamp"], "isoformat")
+                    else str(latest["timestamp"])
+                ),
                 source="cache",
             )
 
@@ -259,7 +261,16 @@ async def get_quote(
     try:
         ingestor = _get_ingestor()
 
-        days_map = {"1d": 1, "5d": 5, "7d": 7, "15d": 15, "30d": 30, "90d": 90, "180d": 180, "365d": 365}
+        days_map = {
+            "1d": 1,
+            "5d": 5,
+            "7d": 7,
+            "15d": 15,
+            "30d": 30,
+            "90d": 90,
+            "180d": 180,
+            "365d": 365,
+        }
         days = days_map.get(period, 30)
 
         to_date = datetime.now()
@@ -289,6 +300,7 @@ async def get_quote(
 
         try:
             import pandas as pd
+
             ind_df = pd.DataFrame(
                 {
                     "open": open_prices,
@@ -327,14 +339,21 @@ async def get_quote(
                 "low": float(latest["low"]),
                 "close": float(latest["close"]),
                 "volume": int(latest.get("volume", 0)),
-                "change": round(float(latest["close"]) - float(df.iloc[-2]["close"]), 2)
-                if len(df) > 1 else 0.0,
-                "change_pct": round(
-                    (float(latest["close"]) - float(df.iloc[-2]["close"]))
-                    / float(df.iloc[-2]["close"]) * 100,
-                    2,
-                )
-                if len(df) > 1 else 0.0,
+                "change": (
+                    round(float(latest["close"]) - float(df.iloc[-2]["close"]), 2)
+                    if len(df) > 1
+                    else 0.0
+                ),
+                "change_pct": (
+                    round(
+                        (float(latest["close"]) - float(df.iloc[-2]["close"]))
+                        / float(df.iloc[-2]["close"])
+                        * 100,
+                        2,
+                    )
+                    if len(df) > 1
+                    else 0.0
+                ),
             },
             indicators=latest_indicators,
         )
@@ -380,6 +399,7 @@ async def calculate_indicators(request: IndicatorsRequest) -> IndicatorsResponse
             )
 
         import pandas as pd
+
         df = pd.DataFrame(
             {
                 "open": request.open_prices,
@@ -397,11 +417,16 @@ async def calculate_indicators(request: IndicatorsRequest) -> IndicatorsResponse
 
         # Convert indicator columns to serialisable lists
         indicator_cols = [
-            c for c in ind_df.columns if c not in ("open", "high", "low", "close", "volume")
+            c
+            for c in ind_df.columns
+            if c not in ("open", "high", "low", "close", "volume")
         ]
         serializable_indicators = {
             name: (
-                [None if pd.isna(v) else round(float(v), 4) for v in ind_df[name].tolist()]
+                [
+                    None if pd.isna(v) else round(float(v), 4)
+                    for v in ind_df[name].tolist()
+                ]
                 if name in ind_df.columns
                 else []
             )
@@ -439,8 +464,16 @@ async def list_symbols() -> Dict[str, Any]:
             "nifty50": nifty50,
             "total_count": len(nifty50),
             "popular": [
-                "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
-                "SBIN", "ITC", "LT", "BHARTIARTL", "ADANIENT",
+                "RELIANCE",
+                "TCS",
+                "HDFCBANK",
+                "INFY",
+                "ICICIBANK",
+                "SBIN",
+                "ITC",
+                "LT",
+                "BHARTIARTL",
+                "ADANIENT",
             ],
             "indices": ["NIFTY50", "BANKNIFTY", "FINNIFTY", "SENSEX"],
         }

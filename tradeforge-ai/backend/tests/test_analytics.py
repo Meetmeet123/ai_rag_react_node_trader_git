@@ -79,7 +79,12 @@ def test_dashboard_endpoint_returns_expected_keys(client: TestClient) -> None:
     response = client.get("/api/v1/analytics/dashboard")
     assert response.status_code == 200
     data = response.json()
-    assert set(data.keys()) == {"kpis", "daily_pnl", "strategy_performance", "recent_trades"}
+    assert set(data.keys()) == {
+        "kpis",
+        "daily_pnl",
+        "strategy_performance",
+        "recent_trades",
+    }
 
     kpis = data["kpis"]
     expected_kpi_keys = {
@@ -122,13 +127,17 @@ def test_list_trades_with_pagination(client: TestClient) -> None:
     _insert_test_trade(strategy_id, 100.0)
     _insert_test_trade(strategy_id, 200.0)
 
-    response = client.get("/api/v1/analytics/trades?symbol=ANALYTICSTEST&limit=1&offset=0")
+    response = client.get(
+        "/api/v1/analytics/trades?symbol=ANALYTICSTEST&limit=1&offset=0"
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["total"] >= 2
     assert len(data["trades"]) == 1
 
-    second = client.get("/api/v1/analytics/trades?symbol=ANALYTICSTEST&limit=1&offset=1")
+    second = client.get(
+        "/api/v1/analytics/trades?symbol=ANALYTICSTEST&limit=1&offset=1"
+    )
     assert second.status_code == 200
     assert len(second.json()["trades"]) == 1
 

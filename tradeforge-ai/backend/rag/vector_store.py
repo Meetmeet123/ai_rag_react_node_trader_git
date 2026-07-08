@@ -23,17 +23,14 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import chromadb
-import numpy as np
 from chromadb.config import Settings
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 
-from .models import BaseDocument
-
-
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Document:
@@ -74,6 +71,7 @@ class SearchResult:
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class VectorStore:
     """Production-grade vector store backed by ChromaDB.
@@ -239,9 +237,19 @@ class VectorStore:
 
         conditions: List[Dict[str, Any]] = []
         for key, raw_val in filters.items():
-            if isinstance(raw_val, str) and ":" in raw_val and raw_val.split(":", 1)[0] in {
-                "gt", "gte", "lt", "lte", "ne", "in",
-            }:
+            if (
+                isinstance(raw_val, str)
+                and ":" in raw_val
+                and raw_val.split(":", 1)[0]
+                in {
+                    "gt",
+                    "gte",
+                    "lt",
+                    "lte",
+                    "ne",
+                    "in",
+                }
+            ):
                 op, val_str = raw_val.split(":", 1)
                 if op == "in":
                     parsed = val_str.split(",")
@@ -394,7 +402,9 @@ class VectorStore:
         """Fetch a single document by ID."""
         collection = self._get_collection(collection_name)
         try:
-            result = collection.get(ids=[doc_id], include=["documents", "metadatas", "embeddings"])
+            result = collection.get(
+                ids=[doc_id], include=["documents", "metadatas", "embeddings"]
+            )
             if not result["ids"]:
                 return None
             return Document(
@@ -453,7 +463,12 @@ class VectorStore:
             )
         except Exception as exc:
             logger.error(f"Search failed on '{collection_name}': {exc}")
-            return SearchResult(documents=[], total_found=0, search_time_ms=0.0, collection=collection_name)
+            return SearchResult(
+                documents=[],
+                total_found=0,
+                search_time_ms=0.0,
+                collection=collection_name,
+            )
 
         documents: List[Document] = []
         if raw["ids"] and raw["ids"][0]:
@@ -470,7 +485,9 @@ class VectorStore:
                         id=doc_id,
                         content=raw["documents"][0][idx] or "",
                         metadata=raw["metadatas"][0][idx] or {},
-                        embedding=raw["embeddings"][0][idx] if raw.get("embeddings") else None,
+                        embedding=(
+                            raw["embeddings"][0][idx] if raw.get("embeddings") else None
+                        ),
                         score=round(score, 6),
                     )
                 )
@@ -540,11 +557,21 @@ class VectorStore:
             )
         except Exception as exc:
             logger.error(f"Hybrid search failed on '{collection_name}': {exc}")
-            return SearchResult(documents=[], total_found=0, search_time_ms=0.0, collection=collection_name)
+            return SearchResult(
+                documents=[],
+                total_found=0,
+                search_time_ms=0.0,
+                collection=collection_name,
+            )
 
         if not raw["ids"] or not raw["ids"][0]:
             elapsed = (time.perf_counter() - t0) * 1000.0
-            return SearchResult(documents=[], total_found=0, search_time_ms=elapsed, collection=collection_name)
+            return SearchResult(
+                documents=[],
+                total_found=0,
+                search_time_ms=elapsed,
+                collection=collection_name,
+            )
 
         candidates: List[Document] = []
         for idx, doc_id in enumerate(raw["ids"][0]):
@@ -553,7 +580,9 @@ class VectorStore:
             doc_text = raw["documents"][0][idx] or ""
             keyword_score = self._bm25_score(query_tokens, doc_text)
 
-            hybrid_score = semantic_weight * semantic_score + keyword_weight * keyword_score
+            hybrid_score = (
+                semantic_weight * semantic_score + keyword_weight * keyword_score
+            )
 
             if hybrid_score < min_score:
                 continue
@@ -563,7 +592,9 @@ class VectorStore:
                     id=doc_id,
                     content=doc_text,
                     metadata=raw["metadatas"][0][idx] or {},
-                    embedding=raw["embeddings"][0][idx] if raw.get("embeddings") else None,
+                    embedding=(
+                        raw["embeddings"][0][idx] if raw.get("embeddings") else None
+                    ),
                     score=round(hybrid_score, 6),
                 )
             )
@@ -615,7 +646,10 @@ class VectorStore:
             except Exception as exc:
                 logger.error(f"Search failed on '{coll_name}': {exc}")
                 results[coll_name] = SearchResult(
-                    documents=[], total_found=0, search_time_ms=0.0, collection=coll_name
+                    documents=[],
+                    total_found=0,
+                    search_time_ms=0.0,
+                    collection=coll_name,
                 )
         return results
 
@@ -689,8 +723,7 @@ class VectorStore:
                 "device": self.device,
             },
             "collections": {
-                name: self.get_collection_stats(name)
-                for name in self._collections
+                name: self.get_collection_stats(name) for name in self._collections
             },
         }
 
@@ -730,6 +763,7 @@ class VectorStore:
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
+
 
 def _coerce_numeric(val: Any) -> Any:
     """Try to convert *val* to ``int`` or ``float``; fall back to string."""

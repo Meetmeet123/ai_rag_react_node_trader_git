@@ -16,9 +16,9 @@ Example flow:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import pandas as pd
 from loguru import logger
@@ -34,6 +34,7 @@ class Tick:
         quantity: Number of shares/contracts traded.
         side: Trade direction — 'buy' or 'sell'.
     """
+
     timestamp: datetime
     price: float
     quantity: int
@@ -47,6 +48,7 @@ class CandleBuilderState:
     Tracks running open/high/low/close/volume so that we only
     need to update fields incrementally as ticks arrive.
     """
+
     bucket_start: datetime
     open_price: float = 0.0
     high_price: float = 0.0
@@ -184,10 +186,19 @@ class OHLCBuilder:
             volume, tick_count, buy_volume, sell_volume.
         """
         if not ticks:
-            return pd.DataFrame(columns=[
-                "timestamp", "open", "high", "low", "close",
-                "volume", "tick_count", "buy_volume", "sell_volume"
-            ])
+            return pd.DataFrame(
+                columns=[
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "tick_count",
+                    "buy_volume",
+                    "sell_volume",
+                ]
+            )
 
         # Ensure sorted — defensive, O(n log n)
         sorted_ticks = sorted(ticks, key=lambda t: t.timestamp)
@@ -224,10 +235,19 @@ class OHLCBuilder:
         The in-progress candle (if any) is **not** included.
         """
         if not self.completed_candles:
-            return pd.DataFrame(columns=[
-                "timestamp", "open", "high", "low", "close",
-                "volume", "tick_count", "buy_volume", "sell_volume"
-            ])
+            return pd.DataFrame(
+                columns=[
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "tick_count",
+                    "buy_volume",
+                    "sell_volume",
+                ]
+            )
         return pd.DataFrame(self.completed_candles)
 
     def reset(self) -> None:
@@ -257,7 +277,11 @@ class OHLCBuilder:
             A timezone-naive datetime representing the bucket start.
         """
         # Work with UTC to avoid DST issues, then convert back
-        ts = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp.astimezone(timezone.utc)
+        ts = (
+            timestamp.replace(tzinfo=timezone.utc)
+            if timestamp.tzinfo is None
+            else timestamp.astimezone(timezone.utc)
+        )
         epoch_sec = int(ts.timestamp())
         bucket_start_sec = (epoch_sec // self.timeframe) * self.timeframe
         bucket_dt = datetime.utcfromtimestamp(bucket_start_sec)

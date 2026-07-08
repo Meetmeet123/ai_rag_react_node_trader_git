@@ -1,8 +1,8 @@
 {
   "last_training_time": null,
-  "last_formula_hash": "",
-  "consecutive_failures": 2,
-  "next_job_id": 3,
+  "last_formula_hash": "ed2e5d4722ed02a2",
+  "consecutive_failures": 3,
+  "next_job_id": 4,
   "jobs_history": [
     {
       "job_id": 1,
@@ -35,7 +35,23 @@
       "error_message": "Dataset build failed: 'StrategyDatasetBuilder' object has no attribute 'build'",
       "backtest_metrics": {},
       "deployed": false
+    },
+    {
+      "job_id": 3,
+      "trigger_reason": "formula_change",
+      "started_at": "2026-07-06T08:52:31.393999",
+      "completed_at": "2026-07-06T08:53:13.164388",
+      "status": "failed",
+      "data_samples": 33,
+      "epochs_trained": 0,
+      "final_loss": 0.0,
+      "validation_loss": 0.0,
+      "model_version_id": null,
+      "checkpoint_path": "",
+      "error_message": "Training failed: Fine-tuning failed: MPS backend out of memory (MPS allocated: 21.90 GiB, other allocations: 576.80 MiB, max allowed: 22.64 GiB). Tried to allocate 192.00 MiB on shared pool. Use PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 to disable upper limit for memory allocations (may cause system failure).",
+      "backtest_metrics": {},
+      "deployed": false
     }
   ],
-  "saved_at": "2026-07-06T07:37:28.493069"
+  "saved_at": "2026-07-06T13:22:57.907711"
 }

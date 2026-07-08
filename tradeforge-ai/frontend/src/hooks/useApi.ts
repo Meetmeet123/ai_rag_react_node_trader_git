@@ -60,7 +60,7 @@ export function useQuery<T>(
 
   useEffect(() => {
     if (!enabled) return;
-    execute();
+    execute().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, execute, ...deps]);
 

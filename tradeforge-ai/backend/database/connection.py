@@ -25,6 +25,7 @@ from database.models import (
     Strategy,
     Trade,
     TrainingLog,
+    TrainingPipelineState,
     User,
 )
 
@@ -45,6 +46,7 @@ DOCUMENT_MODELS: List[type] = [
     BacktestRun,
     ModelVersion,
     TrainingLog,
+    TrainingPipelineState,
     BrokerConfig,
     RiskConfig,
     MarketData,

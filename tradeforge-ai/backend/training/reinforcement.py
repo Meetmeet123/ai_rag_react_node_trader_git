@@ -26,10 +26,11 @@ from __future__ import annotations
 import json
 import os
 import pickle
+import random
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from enum import IntEnum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -49,6 +50,7 @@ class Action(IntEnum):
     - ``ENTER``: Open a new long position (or add to existing)
     - ``EXIT``: Close the current position
     """
+
     HOLD = 0
     ENTER = 1
     EXIT = 2
@@ -89,6 +91,7 @@ class TradeState:
     Q-table manageable.  For higher-dimensional state spaces consider
     switching to a DQN (deep Q-network) approximation.
     """
+
     rsi: float
     macd: float
     price_vs_sma20: float
@@ -100,16 +103,19 @@ class TradeState:
 
     def to_array(self) -> np.ndarray:
         """Convert state to a NumPy array for indexing / ML."""
-        return np.array([
-            self.rsi,
-            self.macd,
-            self.price_vs_sma20,
-            self.price_vs_sma50,
-            self.volume_ratio,
-            float(self.trend_direction),
-            self.time_of_day,
-            float(self.day_of_week) / 4.0,  # normalise to [0, 1]
-        ], dtype=np.float32)
+        return np.array(
+            [
+                self.rsi,
+                self.macd,
+                self.price_vs_sma20,
+                self.price_vs_sma50,
+                self.volume_ratio,
+                float(self.trend_direction),
+                self.time_of_day,
+                float(self.day_of_week) / 4.0,  # normalise to [0, 1]
+            ],
+            dtype=np.float32,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a plain dictionary."""
@@ -128,6 +134,7 @@ class TradeState:
 @dataclass
 class EpisodeResult:
     """Summary statistics for a single training episode."""
+
     episode: int
     total_reward: float
     n_trades: int
@@ -199,7 +206,7 @@ class TradeExecutionRL:
     _WIN_REWARD: float = 1.0
     _LOSS_PENALTY: float = -1.5
     _HOLD_PENALTY: float = -0.01  # Small time-decay penalty
-    _TRADE_COST: float = -0.05    # Per-transaction penalty
+    _TRADE_COST: float = -0.05  # Per-transaction penalty
 
     def __init__(
         self,
@@ -294,7 +301,11 @@ class TradeExecutionRL:
         arr = state.to_array()
         n_dims = len(arr)
 
-        if not self._state_initialized or self._state_mins is None or self._state_maxs is None:
+        if (
+            not self._state_initialized
+            or self._state_mins is None
+            or self._state_maxs is None
+        ):
             # Default bounds before data-driven initialisation
             mins = np.full(n_dims, -1.0, dtype=np.float32)
             maxs = np.full(n_dims, 1.0, dtype=np.float32)
@@ -312,7 +323,7 @@ class TradeExecutionRL:
         # Mixed-radix encoding: unique index for each bin combination
         index = 0
         for dim_idx, bin_val in enumerate(bins):
-            index += bin_val * (self.n_bins ** dim_idx)
+            index += bin_val * (self.n_bins**dim_idx)
 
         return int(index)
 
@@ -354,7 +365,9 @@ class TradeExecutionRL:
         best_action = max(q_row, key=q_row.get, default=Action.HOLD)
         return best_action
 
-    def get_action_probs(self, state: TradeState, temperature: float = 1.0) -> Dict[int, float]:
+    def get_action_probs(
+        self, state: TradeState, temperature: float = 1.0
+    ) -> Dict[int, float]:
         """
         Get action probabilities using Boltzmann (softmax) exploration.
 
@@ -481,7 +494,11 @@ class TradeExecutionRL:
             self._init_state_bounds(historical_data)
 
         states = self._extract_states(historical_data)
-        prices = historical_data["close"].values if "close" in historical_data.columns else historical_data["Close"].values
+        prices = (
+            historical_data["close"].values
+            if "close" in historical_data.columns
+            else historical_data["Close"].values
+        )
 
         best_avg_reward = float("-inf")
         patience_counter = 0
@@ -525,7 +542,10 @@ class TradeExecutionRL:
 
             # Early stopping
             if episode > early_stop_patience:
-                recent_avg = sum(r.total_reward for r in results[-early_stop_patience:]) / early_stop_patience
+                recent_avg = (
+                    sum(r.total_reward for r in results[-early_stop_patience:])
+                    / early_stop_patience
+                )
                 if recent_avg > best_avg_reward * (1 + early_stop_min_improvement):
                     best_avg_reward = recent_avg
                     patience_counter = 0
@@ -569,7 +589,6 @@ class TradeExecutionRL:
         for t in range(len(states) - 1):
             state = states[t]
             current_price = prices[t]
-            next_price = prices[t + 1]
 
             action = self.choose_action(state, training=True)
             reward = 0.0
@@ -607,7 +626,7 @@ class TradeExecutionRL:
 
             # Q-table update
             next_state = states[t + 1]
-            done = (t == len(states) - 2)
+            done = t == len(states) - 2
             self.update(state, action, reward, next_state, done=done)
 
         # Force close any open position at end of episode
@@ -660,7 +679,9 @@ class TradeExecutionRL:
             macd_norm = np.clip(macd_raw / 5.0, -1.0, 1.0)  # assume ~5 is large
 
             # Price vs SMA20 and SMA50 as percentage deviations
-            price_vs_sma20 = row.get("price_vs_sma20", 0.0) / 10.0  # normalise ~10% to 1.0
+            price_vs_sma20 = (
+                row.get("price_vs_sma20", 0.0) / 10.0
+            )  # normalise ~10% to 1.0
             price_vs_sma50 = row.get("price_vs_sma50", 0.0) / 10.0
 
             # Volume ratio: log-normalise
@@ -693,16 +714,18 @@ class TradeExecutionRL:
                 except Exception:
                     pass
 
-            states.append(TradeState(
-                rsi=float(np.clip(rsi_norm, -1.0, 1.0)),
-                macd=float(np.clip(macd_norm, -1.0, 1.0)),
-                price_vs_sma20=float(np.clip(price_vs_sma20, -1.0, 1.0)),
-                price_vs_sma50=float(np.clip(price_vs_sma50, -1.0, 1.0)),
-                volume_ratio=float(np.clip(vol_norm, -1.0, 1.0)),
-                trend_direction=trend,
-                time_of_day=float(time_of_day),
-                day_of_week=day_of_week,
-            ))
+            states.append(
+                TradeState(
+                    rsi=float(np.clip(rsi_norm, -1.0, 1.0)),
+                    macd=float(np.clip(macd_norm, -1.0, 1.0)),
+                    price_vs_sma20=float(np.clip(price_vs_sma20, -1.0, 1.0)),
+                    price_vs_sma50=float(np.clip(price_vs_sma50, -1.0, 1.0)),
+                    volume_ratio=float(np.clip(vol_norm, -1.0, 1.0)),
+                    trend_direction=trend,
+                    time_of_day=float(time_of_day),
+                    day_of_week=day_of_week,
+                )
+            )
 
         return states
 
@@ -728,7 +751,11 @@ class TradeExecutionRL:
             Evaluation metrics: total_return, sharpe, max_drawdown, win_rate, etc.
         """
         states = self._extract_states(historical_data)
-        prices = historical_data["close"].values if "close" in historical_data.columns else historical_data["Close"].values
+        prices = (
+            historical_data["close"].values
+            if "close" in historical_data.columns
+            else historical_data["Close"].values
+        )
 
         returns: List[float] = []
         trades: List[Dict[str, Any]] = []
@@ -752,14 +779,16 @@ class TradeExecutionRL:
                 pnl_pct = (current_price - entry_price) / entry_price
                 trade_return = pnl_pct - 2 * self.transaction_cost  # entry + exit cost
                 returns.append(trade_return)
-                equity *= (1 + trade_return)
-                trades.append({
-                    "entry_idx": entry_idx,
-                    "exit_idx": t,
-                    "entry_price": entry_price,
-                    "exit_price": current_price,
-                    "return_pct": trade_return * 100,
-                })
+                equity *= 1 + trade_return
+                trades.append(
+                    {
+                        "entry_idx": entry_idx,
+                        "exit_idx": t,
+                        "entry_price": entry_price,
+                        "exit_price": current_price,
+                        "return_pct": trade_return * 100,
+                    }
+                )
                 in_position = False
 
             equity_curve.append(equity)
@@ -769,14 +798,16 @@ class TradeExecutionRL:
             pnl_pct = (prices[-1] - entry_price) / entry_price
             trade_return = pnl_pct - 2 * self.transaction_cost
             returns.append(trade_return)
-            equity *= (1 + trade_return)
-            trades.append({
-                "entry_idx": entry_idx,
-                "exit_idx": len(states) - 1,
-                "entry_price": entry_price,
-                "exit_price": prices[-1],
-                "return_pct": trade_return * 100,
-            })
+            equity *= 1 + trade_return
+            trades.append(
+                {
+                    "entry_idx": entry_idx,
+                    "exit_idx": len(states) - 1,
+                    "entry_price": entry_price,
+                    "exit_price": prices[-1],
+                    "return_pct": trade_return * 100,
+                }
+            )
 
         equity_arr = np.array(equity_curve)
 
@@ -789,7 +820,9 @@ class TradeExecutionRL:
         # Sharpe (daily, assuming each step is a day)
         if len(returns) > 1:
             returns_arr = np.array(returns)
-            sharpe = (np.mean(returns_arr) / (np.std(returns_arr) + 1e-10)) * np.sqrt(252)
+            sharpe = (np.mean(returns_arr) / (np.std(returns_arr) + 1e-10)) * np.sqrt(
+                252
+            )
         else:
             sharpe = 0.0
 
@@ -853,7 +886,9 @@ class TradeExecutionRL:
             "total_steps": self._total_steps,
         }
 
-        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+        os.makedirs(
+            os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True
+        )
         with open(path, "wb") as fh:
             pickle.dump(state, fh)
 
@@ -942,7 +977,7 @@ class TradeExecutionRL:
             all_values.extend(q_row.values())
 
         arr = np.array(all_values)
-        total_possible = self.n_bins ** 8 * self.n_actions  # 8 state dims
+        total_possible = self.n_bins**8 * self.n_actions  # 8 state dims
 
         return {
             "size": len(self.q_table),
@@ -991,13 +1026,15 @@ class TradeExecutionRL:
         for state_idx, score in state_scores[:top_n]:
             q_row = self.q_table[state_idx]
             best_action = int(max(q_row, key=q_row.get))
-            policy["policy"].append({
-                "state_index": state_idx,
-                "best_action": best_action,
-                "action_names": {0: "HOLD", 1: "ENTER", 2: "EXIT"},
-                "q_values": {str(k): round(v, 4) for k, v in q_row.items()},
-                "max_q": round(score, 4),
-            })
+            policy["policy"].append(
+                {
+                    "state_index": state_idx,
+                    "best_action": best_action,
+                    "action_names": {0: "HOLD", 1: "ENTER", 2: "EXIT"},
+                    "q_values": {str(k): round(v, 4) for k, v in q_row.items()},
+                    "max_q": round(score, 4),
+                }
+            )
 
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(policy, fh, indent=2)
@@ -1094,12 +1131,15 @@ class DeepTradeExecutionRL:
             import torch
             import torch.nn as nn
             import torch.optim as optim
+
             self._torch = torch
             self._nn = nn
             self._optim = optim
             self._has_torch = True
         except ImportError:
-            logger.warning("PyTorch not available — DeepTradeExecutionRL will not function.")
+            logger.warning(
+                "PyTorch not available — DeepTradeExecutionRL will not function."
+            )
             self._has_torch = False
             return
 
@@ -1135,7 +1175,9 @@ class DeepTradeExecutionRL:
 
         return self._nn.Sequential(*layers)
 
-    def choose_action(self, state: Union[TradeState, np.ndarray], training: bool = True) -> int:
+    def choose_action(
+        self, state: Union[TradeState, np.ndarray], training: bool = True
+    ) -> int:
         """
         Select an action using epsilon-greedy policy.
 
@@ -1203,12 +1245,18 @@ class DeepTradeExecutionRL:
         dones_t = self._torch.FloatTensor(dones)
 
         # Current Q values
-        current_q = self.q_network(states_t).gather(1, actions_t.unsqueeze(1)).squeeze(1)
+        current_q = (
+            self.q_network(states_t).gather(1, actions_t.unsqueeze(1)).squeeze(1)
+        )
 
         # Target Q values (Double DQN: use online net for action selection)
         with self._torch.no_grad():
             next_actions = self.q_network(next_states_t).argmax(dim=1)
-            next_q = self.target_network(next_states_t).gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            next_q = (
+                self.target_network(next_states_t)
+                .gather(1, next_actions.unsqueeze(1))
+                .squeeze(1)
+            )
             target_q = rewards_t + self.gamma * next_q * (1 - dones_t)
 
         # Loss + update
@@ -1255,7 +1303,11 @@ class DeepTradeExecutionRL:
 
         states = TradeExecutionRL._extract_states(historical_data)
         state_arrays = [s.to_array() for s in states]
-        prices = historical_data["close"].values if "close" in historical_data.columns else historical_data["Close"].values
+        prices = (
+            historical_data["close"].values
+            if "close" in historical_data.columns
+            else historical_data["Close"].values
+        )
 
         results: List[EpisodeResult] = []
 
@@ -1295,7 +1347,7 @@ class DeepTradeExecutionRL:
 
                 # Store transition and train
                 next_arr = state_arrays[t + 1]
-                done = (t == len(states) - 2)
+                done = t == len(states) - 2
                 self.store_transition(state_arr, action, reward, next_arr, done)
                 self.train_step()
 
@@ -1305,16 +1357,18 @@ class DeepTradeExecutionRL:
                 total_reward += pnl_pct * 100
 
             win_rate = n_wins / max(n_trades, 1)
-            results.append(EpisodeResult(
-                episode=episode,
-                total_reward=total_reward,
-                n_trades=n_trades,
-                n_wins=n_wins,
-                n_losses=n_losses,
-                win_rate=win_rate,
-                final_q_table_size=len(self._replay_buffer),
-                epsilon=self.epsilon,
-            ))
+            results.append(
+                EpisodeResult(
+                    episode=episode,
+                    total_reward=total_reward,
+                    n_trades=n_trades,
+                    n_wins=n_wins,
+                    n_losses=n_losses,
+                    win_rate=win_rate,
+                    final_q_table_size=len(self._replay_buffer),
+                    epsilon=self.epsilon,
+                )
+            )
 
             if episode % print_every == 0:
                 recent = [r.total_reward for r in results[-print_every:]]
@@ -1332,13 +1386,16 @@ class DeepTradeExecutionRL:
         """Save the DQN network weights."""
         if not self._has_torch:
             raise RuntimeError("PyTorch not available.")
-        self._torch.save({
-            "q_network": self.q_network.state_dict(),
-            "target_network": self.target_network.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "epsilon": self.epsilon,
-            "step_count": self._step_count,
-        }, path)
+        self._torch.save(
+            {
+                "q_network": self.q_network.state_dict(),
+                "target_network": self.target_network.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "epsilon": self.epsilon,
+                "step_count": self._step_count,
+            },
+            path,
+        )
         logger.info(f"DQN model saved to {path}")
 
     def load(self, path: str) -> None:

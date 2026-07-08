@@ -41,6 +41,10 @@ celery_app.conf.update(
             "task": "tasks.execution.generate_signals",
             "schedule": 60,  # every 60 seconds
         },
+        "run-auto-training": {
+            "task": "tasks.training.run_training_cycle",
+            "schedule": settings.TRAINING_INTERVAL_MINUTES * 60,  # default 20 min
+        },
     },
 )
 

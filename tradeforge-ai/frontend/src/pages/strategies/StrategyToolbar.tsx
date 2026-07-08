@@ -45,6 +45,7 @@ export default function StrategyToolbar({
     <div className="h-12 shrink-0 bg-[#06060A] border-b border-[rgba(255,255,255,0.06)] flex items-center px-4 gap-3">
       {/* Strategy Name */}
       <input
+        data-testid="strategy-name"
         type="text"
         value={strategy.name}
         onChange={(e) => onNameChange(e.target.value)}

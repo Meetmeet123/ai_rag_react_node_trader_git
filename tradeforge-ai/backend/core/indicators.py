@@ -18,7 +18,6 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Moving Averages
 # ---------------------------------------------------------------------------
@@ -363,8 +362,16 @@ def adx(
     plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0.0), 0.0)
     minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0.0), 0.0)
 
-    plus_di = 100.0 * plus_dm.rolling(window=period, min_periods=period).mean() / atr_vals.replace(0.0, np.nan)
-    minus_di = 100.0 * minus_dm.rolling(window=period, min_periods=period).mean() / atr_vals.replace(0.0, np.nan)
+    plus_di = (
+        100.0
+        * plus_dm.rolling(window=period, min_periods=period).mean()
+        / atr_vals.replace(0.0, np.nan)
+    )
+    minus_di = (
+        100.0
+        * minus_dm.rolling(window=period, min_periods=period).mean()
+        / atr_vals.replace(0.0, np.nan)
+    )
 
     dx = 100.0 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0.0, np.nan)
     adx_vals = dx.rolling(window=period, min_periods=period).mean()
@@ -649,7 +656,9 @@ def vwma(
         VWMA values.
     """
     tp_vol = close * volume
-    return tp_vol.rolling(window=period, min_periods=period).sum() / volume.rolling(window=period, min_periods=period).sum().replace(0.0, np.nan)
+    return tp_vol.rolling(window=period, min_periods=period).sum() / volume.rolling(
+        window=period, min_periods=period
+    ).sum().replace(0.0, np.nan)
 
 
 # ---------------------------------------------------------------------------
@@ -697,15 +706,11 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
     # Momentum
     result["rsi_14"] = rsi(result["close"], 14)
-    result["macd"], result["macd_signal"], result["macd_hist"] = macd(
-        result["close"]
-    )
+    result["macd"], result["macd_signal"], result["macd_hist"] = macd(result["close"])
     result["stoch_k"], result["stoch_d"] = stochastic(
         result["high"], result["low"], result["close"]
     )
-    result["cci_20"] = cci(
-        result["high"], result["low"], result["close"], 20
-    )
+    result["cci_20"] = cci(result["high"], result["low"], result["close"], 20)
     result["mfi_14"] = mfi(
         result["high"],
         result["low"],
@@ -721,9 +726,7 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     result["bb_upper"], result["bb_middle"], result["bb_lower"] = bollinger_bands(
         result["close"]
     )
-    result["atr_14"] = atr(
-        result["high"], result["low"], result["close"], 14
-    )
+    result["atr_14"] = atr(result["high"], result["low"], result["close"], 14)
     (
         result["keltner_upper"],
         result["keltner_middle"],

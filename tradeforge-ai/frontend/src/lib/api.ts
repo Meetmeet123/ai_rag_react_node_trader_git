@@ -123,11 +123,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (!response.ok) {
-    const error = (data as ApiError) || {
-      error: true,
-      status_code: response.status,
-      detail: typeof data === 'string' ? data : response.statusText,
-    };
+    const error =
+      data && typeof data === 'object' && 'detail' in data
+        ? (data as ApiError)
+        : {
+            error: true,
+            status_code: response.status,
+            detail: typeof data === 'string' ? data : response.statusText,
+          };
     throw error;
   }
 
@@ -178,6 +181,22 @@ export async function register(credentials: RegisterCredentials): Promise<User> 
 
 export async function fetchCurrentUser(): Promise<User> {
   return request<User>('/api/v1/auth/me');
+}
+
+export async function requestLiveApproval(): Promise<{ success: boolean; message: string }> {
+  return request<{ success: boolean; message: string }>('/api/v1/auth/request-live-approval', {
+    method: 'POST',
+  });
+}
+
+export async function fetchPendingLiveApprovals(): Promise<{ user: User; requested_at: string }[]> {
+  return request<{ user: User; requested_at: string }[]>('/api/v1/auth/pending-live-approvals');
+}
+
+export async function approveUserForLive(userId: string): Promise<{ success: boolean; message: string; user: User }> {
+  return request<{ success: boolean; message: string; user: User }>(`/api/v1/auth/users/${userId}/approve-live`, {
+    method: 'POST',
+  });
 }
 
 export interface AuditLogParams {

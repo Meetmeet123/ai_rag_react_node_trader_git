@@ -23,9 +23,7 @@ Typical usage::
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -44,7 +42,6 @@ from core.broker.base import (
     PositionData,
     ProductType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Angel One SmartAPI constants
@@ -105,6 +102,7 @@ _STATUS_MAP = {
 # ---------------------------------------------------------------------------
 # Broker implementation
 # ---------------------------------------------------------------------------
+
 
 class AngelOneBroker(BaseBroker):
     """Angel One SmartAPI broker connector.
@@ -221,7 +219,8 @@ class AngelOneBroker(BaseBroker):
 
             self._connected = True
             logger.info(
-                "AngelOne connected | client={}", self.client_id,
+                "AngelOne connected | client={}",
+                self.client_id,
             )
             return True
 
@@ -396,16 +395,18 @@ class AngelOneBroker(BaseBroker):
             results = []
             for item in data:
                 status_str = str(item.get("status", "")).lower()
-                results.append(OrderResult(
-                    order_id=item.get("orderid", ""),
-                    status=_STATUS_MAP.get(status_str, OrderStatus.PENDING),
-                    symbol=item.get("tradingsymbol", ""),
-                    quantity=int(item.get("quantity", 0)),
-                    filled_qty=int(item.get("filledshares", 0)),
-                    avg_price=float(item.get("averageprice", 0) or 0),
-                    message=item.get("text", ""),
-                    broker_raw=item,
-                ))
+                results.append(
+                    OrderResult(
+                        order_id=item.get("orderid", ""),
+                        status=_STATUS_MAP.get(status_str, OrderStatus.PENDING),
+                        symbol=item.get("tradingsymbol", ""),
+                        quantity=int(item.get("quantity", 0)),
+                        filled_qty=int(item.get("filledshares", 0)),
+                        avg_price=float(item.get("averageprice", 0) or 0),
+                        message=item.get("text", ""),
+                        broker_raw=item,
+                    )
+                )
             return results
 
         except Exception as exc:
@@ -423,23 +424,34 @@ class AngelOneBroker(BaseBroker):
             data = self._handle_response(response)
 
             positions = []
-            day_positions = data.get("dayWisePosition", []) if isinstance(data, dict) else []
-            net_positions = data.get("netWisePosition", []) if isinstance(data, dict) else []
+            day_positions = (
+                data.get("dayWisePosition", []) if isinstance(data, dict) else []
+            )
+            net_positions = (
+                data.get("netWisePosition", []) if isinstance(data, dict) else []
+            )
 
             for pos_list in [day_positions, net_positions]:
                 for item in pos_list:
-                    qty = int(item.get("netqty", 0) or item.get("buyqty", 0) - item.get("sellqty", 0))
-                    positions.append(PositionData(
-                        symbol=item.get("tradingsymbol", ""),
-                        exchange=Exchange(item.get("exchange", "NSE")),
-                        product=ProductType.MIS,
-                        quantity=qty,
-                        avg_price=float(item.get("netavg", item.get("buyavgprice", 0)) or 0),
-                        last_price=float(item.get("ltp", 0) or 0),
-                        pnl=float(item.get("pnl", 0) or 0),
-                        day_pnl=float(item.get("daybuyamt", 0) or 0),
-                        broker_raw=item,
-                    ))
+                    qty = int(
+                        item.get("netqty", 0)
+                        or item.get("buyqty", 0) - item.get("sellqty", 0)
+                    )
+                    positions.append(
+                        PositionData(
+                            symbol=item.get("tradingsymbol", ""),
+                            exchange=Exchange(item.get("exchange", "NSE")),
+                            product=ProductType.MIS,
+                            quantity=qty,
+                            avg_price=float(
+                                item.get("netavg", item.get("buyavgprice", 0)) or 0
+                            ),
+                            last_price=float(item.get("ltp", 0) or 0),
+                            pnl=float(item.get("pnl", 0) or 0),
+                            day_pnl=float(item.get("daybuyamt", 0) or 0),
+                            broker_raw=item,
+                        )
+                    )
             return positions
 
         except Exception as exc:
@@ -457,16 +469,18 @@ class AngelOneBroker(BaseBroker):
 
             holdings = []
             for item in data:
-                holdings.append(HoldingData(
-                    symbol=item.get("tradingsymbol", ""),
-                    exchange=Exchange(item.get("exchange", "NSE")),
-                    quantity=int(item.get("quantity", 0)),
-                    avg_price=float(item.get("averageprice", 0) or 0),
-                    last_price=float(item.get("ltp", 0) or 0),
-                    pnl=float(item.get("profitandloss", 0) or 0),
-                    day_change_pct=float(item.get("daychangepercentage", 0) or 0),
-                    broker_raw=item,
-                ))
+                holdings.append(
+                    HoldingData(
+                        symbol=item.get("tradingsymbol", ""),
+                        exchange=Exchange(item.get("exchange", "NSE")),
+                        quantity=int(item.get("quantity", 0)),
+                        avg_price=float(item.get("averageprice", 0) or 0),
+                        last_price=float(item.get("ltp", 0) or 0),
+                        pnl=float(item.get("profitandloss", 0) or 0),
+                        day_change_pct=float(item.get("daychangepercentage", 0) or 0),
+                        broker_raw=item,
+                    )
+                )
             return holdings
 
         except Exception as exc:
@@ -522,6 +536,8 @@ class AngelOneBroker(BaseBroker):
 # Custom exception
 # ---------------------------------------------------------------------------
 
+
 class BrokerAPIError(Exception):
     """Raised when the broker API returns an error response."""
+
     pass

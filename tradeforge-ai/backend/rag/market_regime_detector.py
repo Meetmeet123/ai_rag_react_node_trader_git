@@ -17,19 +17,18 @@ collection so that the RAG retriever can match strategies to current
 market conditions.
 """
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
+
 
 class MarketRegime(Enum):
     """Discrete market regimes that the detector can identify."""
@@ -48,6 +47,7 @@ class MarketRegime(Enum):
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class MarketRegimeDetector:
     """Detects market regime from OHLCV DataFrames with technical indicators.
@@ -416,9 +416,7 @@ class MarketRegimeDetector:
 
         return "neutral"
 
-    def _detect_patterns(
-        self, df: pd.DataFrame, price: float
-    ) -> Dict[str, Any]:
+    def _detect_patterns(self, df: pd.DataFrame, price: float) -> Dict[str, Any]:
         """Detect special patterns: breakout, reversal, squeeze.
 
         Returns a dict with pattern flags and confidence.
@@ -439,7 +437,6 @@ class MarketRegimeDetector:
         # Breakout: price breaks above/below recent range
         recent_high = df["high"].iloc[-20:-1].max()
         recent_low = df["low"].iloc[-20:-1].min()
-        prev_close = df["close"].iloc[-2]
 
         if recent_high > 0 and price > recent_high * 1.005:
             result["breakout"] = True
@@ -729,14 +726,8 @@ class MarketRegimeDetector:
 
     def get_all_regime_descriptions(self) -> Dict[str, str]:
         """Return descriptions for all regimes."""
-        return {
-            r.value: self.get_regime_description(r)
-            for r in MarketRegime
-        }
+        return {r.value: self.get_regime_description(r) for r in MarketRegime}
 
     def get_all_trading_implications(self) -> Dict[str, str]:
         """Return trading implications for all regimes."""
-        return {
-            r.value: self.get_trading_implications(r)
-            for r in MarketRegime
-        }
+        return {r.value: self.get_trading_implications(r) for r in MarketRegime}

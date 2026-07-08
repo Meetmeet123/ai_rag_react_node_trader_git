@@ -21,9 +21,65 @@ from loguru import logger
 
 import rag_service
 from core.llm_engine import LLMEngine, StrategyOutput
+from core.model_registry import ModelRegistry
+from core.prompt_guard import PromptGuardError, check_prompt
+from core.sanitization import sanitize_string
 from core.strategy_parser import NLParser, CodeGenerator, StrategyValidator
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Module-level singletons (injected at app startup)
+# ---------------------------------------------------------------------------
+
+_llm_engine: Optional[LLMEngine] = None
+_rag_engine: Optional[Any] = None
+_registry: Optional[ModelRegistry] = None
+
+
+def set_llm_instance(engine: LLMEngine) -> None:
+    """Inject the lifespan-initialized LLM engine singleton."""
+    global _llm_engine
+    _llm_engine = engine
+    logger.debug("LLM engine singleton injected into llm router")
+
+
+def set_rag_instance(rag: Optional[Any]) -> None:
+    """Inject the lifespan-initialized RAG engine singleton."""
+    global _rag_engine
+    _rag_engine = rag
+    logger.debug("RAG engine singleton injected into llm router")
+
+
+def set_registry_instance(registry: ModelRegistry) -> None:
+    """Inject the lifespan-initialized model registry singleton."""
+    global _registry
+    _registry = registry
+    logger.debug("Model registry singleton injected into llm router")
+
+
+def _get_llm() -> LLMEngine:
+    """Return the injected LLM engine, or raise 503 if not initialized."""
+    if _llm_engine is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="LLM engine not initialized",
+        )
+    return _llm_engine
+
+
+def _get_rag() -> Optional[Any]:
+    """Return the injected RAG engine, falling back to the lazy singleton."""
+    if _rag_engine is not None:
+        return _rag_engine
+    return rag_service.get_rag_or_none()
+
+
+def _sanitize_and_guard(text: str) -> str:
+    """Sanitize user input and reject prompt-injection attempts."""
+    cleaned = sanitize_string(text)
+    check_prompt(cleaned)
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +132,14 @@ class StrategyResponse(BaseModel):
     generated_code: str = Field(..., description="Auto-generated Python strategy code")
 
 
+class ShadowStrategyResponse(BaseModel):
+    """Shadow-mode strategy generation response."""
+
+    active: Dict[str, Any] = Field(..., description="Active model strategy")
+    challenger: Dict[str, Any] = Field(..., description="Challenger model strategy")
+    comparison: Dict[str, Any] = Field(..., description="Comparison metrics and winner")
+
+
 class ChatResponse(BaseModel):
     """Chat assistant response."""
 
@@ -91,12 +155,22 @@ class ParseStrategyResponse(BaseModel):
     instrument: str = Field(..., description="Trading instrument")
     segment: str = Field(..., description="Market segment")
     timeframe: str = Field(..., description="Candle timeframe")
-    indicators: List[Dict[str, Any]] = Field(default_factory=list, description="Indicators used")
-    entry_conditions: str = Field(..., description="Entry conditions as Python expression")
-    exit_conditions: str = Field(..., description="Exit conditions as Python expression")
-    risk_params: Dict[str, Any] = Field(default_factory=dict, description="Risk parameters")
+    indicators: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Indicators used"
+    )
+    entry_conditions: str = Field(
+        ..., description="Entry conditions as Python expression"
+    )
+    exit_conditions: str = Field(
+        ..., description="Exit conditions as Python expression"
+    )
+    risk_params: Dict[str, Any] = Field(
+        default_factory=dict, description="Risk parameters"
+    )
     generated_code: str = Field(default="", description="Generated Python code")
-    validation: Dict[str, Any] = Field(default_factory=dict, description="Validation results")
+    validation: Dict[str, Any] = Field(
+        default_factory=dict, description="Validation results"
+    )
 
 
 class LLMHealthResponse(BaseModel):
@@ -130,12 +204,13 @@ async def generate_strategy(
     Example prompt: "Buy Nifty when RSI below 30 with 1% stop loss"
     """
     try:
-        llm_engine = LLMEngine()
+        llm_engine = _get_llm()
+        user_prompt = _sanitize_and_guard(request.prompt)
 
         # Augment prompt with RAG-retrieved context when available.
-        generation_prompt = request.prompt
+        generation_prompt = user_prompt
         try:
-            rag = rag_service.get_rag_or_none()
+            rag = _get_rag()
             if rag is not None:
                 context = await rag.get_strategy_context(
                     request.prompt,
@@ -156,7 +231,7 @@ async def generate_strategy(
 
         # Also generate executable code via the strategy parser + code generator
         parser = NLParser()
-        template = parser.parse(request.prompt)
+        template = parser.parse(user_prompt)
 
         validator = StrategyValidator()
         validation_result = validator.validate(template)
@@ -173,7 +248,7 @@ async def generate_strategy(
 
         # Ingest the newly generated strategy into RAG for future retrieval.
         try:
-            rag = rag_service.get_rag_or_none()
+            rag = _get_rag()
             if rag is not None:
                 ingest_dict = {
                     "name": strategy_output.strategy_name,
@@ -211,11 +286,58 @@ async def generate_strategy(
             generated_code=generated_code,
         )
 
+    except PromptGuardError as exc:
+        logger.warning("Prompt guard rejected strategy prompt: {}", exc.reason)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.reason,
+        ) from exc
     except Exception as exc:
         logger.exception("Strategy generation failed: {}", exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Strategy generation failed: {exc}",
+        )
+
+
+@router.post(
+    "/generate-strategy/shadow",
+    response_model=ShadowStrategyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate strategy in shadow mode",
+    description="Run strategy generation through the active model and the shadow/challenger model for comparison.",
+)
+async def generate_strategy_shadow(
+    request: StrategyPromptRequest,
+) -> ShadowStrategyResponse:
+    """Generate a strategy using both active and shadow/challenger models."""
+    try:
+        llm_engine = _get_llm()
+        user_prompt = _sanitize_and_guard(request.prompt)
+
+        challenger_path: Optional[str] = None
+        if _registry is not None:
+            shadow = _registry.get_shadow_version()
+            if shadow is not None:
+                challenger_path = shadow.checkpoint_path
+
+        result = llm_engine.generate_strategy_shadow(
+            prompt=user_prompt,
+            challenger_checkpoint_path=challenger_path,
+        )
+        return ShadowStrategyResponse(**result)
+
+    except PromptGuardError as exc:
+        logger.warning("Prompt guard rejected shadow prompt: {}", exc.reason)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.reason,
+        ) from exc
+    except Exception as exc:
+        logger.exception("Shadow strategy generation failed: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Shadow strategy generation failed: {exc}",
         )
 
 
@@ -265,15 +387,16 @@ def _extract_instrument(message: str) -> Optional[str]:
 async def chat(request: ChatRequest) -> ChatResponse:
     """Chat with AI trading assistant."""
     try:
-        llm_engine = LLMEngine()
+        llm_engine = _get_llm()
+        user_message = _sanitize_and_guard(request.message)
         context = request.context or []
 
         # Augment the system prompt with RAG context when available.
         augmented_system: Optional[str] = None
         try:
-            rag = rag_service.get_rag_or_none()
+            rag = _get_rag()
             if rag is not None:
-                instrument = _extract_instrument(request.message)
+                instrument = _extract_instrument(user_message)
                 if instrument:
                     rag_context = await rag.analyze_market(instrument)
                     market_context = rag_context.get("market_context", [])
@@ -284,9 +407,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
                         default=str,
                     )
                 else:
-                    similar = await rag.find_similar_strategies(
-                        request.message, top_k=3
-                    )
+                    similar = await rag.find_similar_strategies(user_message, top_k=3)
                     retrieved = json.dumps(
                         {"similar_strategies": similar},
                         indent=2,
@@ -303,7 +424,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             logger.warning("RAG chat context retrieval failed: {}", exc)
 
         response_text = llm_engine.chat(
-            message=request.message,
+            message=user_message,
             context=context,
             system_prompt=augmented_system,
         )
@@ -313,6 +434,12 @@ async def chat(request: ChatRequest) -> ChatResponse:
             model_loaded=llm_engine.is_ready(),
         )
 
+    except PromptGuardError as exc:
+        logger.warning("Prompt guard rejected chat message: {}", exc.reason)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.reason,
+        ) from exc
     except Exception as exc:
         logger.exception("Chat failed: {}", exc)
         # Return a graceful fallback response
@@ -335,7 +462,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 async def explain_strategy(request: ExplainStrategyRequest) -> Dict[str, str]:
     """Explain a strategy in plain, beginner-friendly language."""
     try:
-        llm_engine = LLMEngine()
+        llm_engine = _get_llm()
         explanation = llm_engine.explain_strategy(request.strategy)
 
         return {
@@ -361,12 +488,12 @@ async def explain_strategy(request: ExplainStrategyRequest) -> Dict[str, str]:
 async def analyze_backtest(request: AnalyzeBacktestRequest) -> Dict[str, str]:
     """Analyze backtest results and suggest improvements."""
     try:
-        llm_engine = LLMEngine()
+        llm_engine = _get_llm()
 
         # Fetch RAG context for backtest analysis when available.
         system_prompt: Optional[str] = None
         try:
-            rag = rag_service.get_rag_or_none()
+            rag = _get_rag()
             if rag is not None:
                 rag_context = await rag.analyze_backtest(request.results)
                 system_prompt = rag_context.get("prompt")
@@ -384,7 +511,14 @@ async def analyze_backtest(request: AnalyzeBacktestRequest) -> Dict[str, str]:
                 {
                     k: v
                     for k, v in request.results.items()
-                    if k not in ("equity_curve", "drawdown_curve", "trade_log", "monthly_returns", "daily_pnl")
+                    if k
+                    not in (
+                        "equity_curve",
+                        "drawdown_curve",
+                        "trade_log",
+                        "monthly_returns",
+                        "daily_pnl",
+                    )
                 },
                 indent=2,
                 default=str,
@@ -414,8 +548,9 @@ async def parse_strategy(request: ParseStrategyRequest) -> ParseStrategyResponse
     making it ideal for quick previews and form auto-fill in the UI.
     """
     try:
+        user_prompt = _sanitize_and_guard(request.prompt)
         parser = NLParser()
-        template = parser.parse(request.prompt)
+        template = parser.parse(user_prompt)
 
         validator = StrategyValidator()
         validation = validator.validate(template)
@@ -459,6 +594,12 @@ async def parse_strategy(request: ParseStrategyRequest) -> ParseStrategyResponse
             },
         )
 
+    except PromptGuardError as exc:
+        logger.warning("Prompt guard rejected parse prompt: {}", exc.reason)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.reason,
+        ) from exc
     except ValueError as exc:
         logger.warning("Strategy parse validation error: {}", exc)
         raise HTTPException(
@@ -481,7 +622,7 @@ async def parse_strategy(request: ParseStrategyRequest) -> ParseStrategyResponse
 async def rag_status() -> Dict[str, Any]:
     """Return RAG engine status and statistics."""
     try:
-        rag = rag_service.get_rag_or_none()
+        rag = _get_rag()
         if rag is None:
             return {
                 "initialized": False,
@@ -517,7 +658,7 @@ async def rag_status() -> Dict[str, Any]:
 async def llm_health() -> LLMHealthResponse:
     """Check LLM engine health status."""
     try:
-        llm_engine = LLMEngine()
+        llm_engine = _get_llm()
         return LLMHealthResponse(
             model_loaded=llm_engine.is_ready(),
             base_model=llm_engine.base_model_name,

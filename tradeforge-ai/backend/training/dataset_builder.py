@@ -19,10 +19,8 @@ Dependencies:
 from __future__ import annotations
 
 import json
-import random
-import re
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 from loguru import logger
@@ -37,6 +35,7 @@ def _load_datasets() -> None:
     if Dataset is not None:
         return
     from datasets import Dataset as _Dataset
+
     Dataset = _Dataset
     logger.debug("datasets library loaded.")
 
@@ -157,7 +156,9 @@ class StrategyDatasetBuilder:
         datasets.Dataset
         """
         _load_datasets()
-        logger.info(f"Building dataset from {len(backtest_results)} backtest results ...")
+        logger.info(
+            f"Building dataset from {len(backtest_results)} backtest results ..."
+        )
 
         pairs: List[Dict[str, str]] = []
         for bt in backtest_results:
@@ -220,621 +221,1030 @@ class StrategyDatasetBuilder:
             # ── RSI strategies ──────────────────────────────────────────
             {
                 "prompt": "Create a strategy to buy Nifty when RSI goes below 30 and sell when it goes above 70",
-                "response": json.dumps({
-                    "strategy_name": "RSI Mean Reversion Nifty",
-                    "description": "Classic RSI mean-reversion strategy: buy oversold, sell overbought on Nifty 15m.",
-                    "instrument": "NIFTY50",
-                    "segment": "equity",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.0},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.85,
-                    "reasoning": "RSI mean-reversion is a well-documented edge on equity indices.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "RSI Mean Reversion Nifty",
+                        "description": "Classic RSI mean-reversion strategy: buy oversold, sell overbought on Nifty 15m.",
+                        "instrument": "NIFTY50",
+                        "segment": "equity",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.0},
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.85,
+                        "reasoning": "RSI mean-reversion is a well-documented edge on equity indices.",
+                    }
+                ),
             },
             {
                 "prompt": "Short Bank Nifty when RSI is above 80 on 5 minute chart with 1.5% stop loss",
-                "response": json.dumps({
-                    "strategy_name": "RSI Overbought BNF Short",
-                    "description": "Short BANKNIFTY when RSI enters extreme overbought territory.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "futures",
-                    "timeframe": "5m",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 80}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 50}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "fixed_pct", "value": 4.0},
-                    "position_sizing": {"type": "pct_capital", "value": 15},
-                    "confidence": 0.82,
-                    "reasoning": "Extreme RSI readings above 80 often precede pullbacks in BANKNIFTY.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "RSI Overbought BNF Short",
+                        "description": "Short BANKNIFTY when RSI enters extreme overbought territory.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "futures",
+                        "timeframe": "5m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 80,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 50,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {"type": "fixed_pct", "value": 4.0},
+                        "position_sizing": {"type": "pct_capital", "value": 15},
+                        "confidence": 0.82,
+                        "reasoning": "Extreme RSI readings above 80 often precede pullbacks in BANKNIFTY.",
+                    }
+                ),
             },
             {
                 "prompt": "Buy Reliance when RSI 7 drops below 25 with 2% target and 0.8% stop loss",
-                "response": json.dumps({
-                    "strategy_name": "RSI-7 Deep Oversold RELIANCE",
-                    "description": "Aggressive mean-reversion on RELIANCE using shorter RSI period for faster signals.",
-                    "instrument": "RELIANCE",
-                    "segment": "equity",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 7, "condition": "<", "value": 25}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 7, "condition": ">", "value": 60}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.8},
-                    "target": {"type": "fixed_pct", "value": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 8},
-                    "confidence": 0.78,
-                    "reasoning": "Shorter RSI period captures faster reversals on large-cap stocks.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "RSI-7 Deep Oversold RELIANCE",
+                        "description": "Aggressive mean-reversion on RELIANCE using shorter RSI period for faster signals.",
+                        "instrument": "RELIANCE",
+                        "segment": "equity",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 7,
+                                "condition": "<",
+                                "value": 25,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 7,
+                                "condition": ">",
+                                "value": 60,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.8},
+                        "target": {"type": "fixed_pct", "value": 2.0},
+                        "position_sizing": {"type": "pct_capital", "value": 8},
+                        "confidence": 0.78,
+                        "reasoning": "Shorter RSI period captures faster reversals on large-cap stocks.",
+                    }
+                ),
             },
-
             # ── SMA / EMA crossover strategies ──────────────────────────
             {
                 "prompt": "Buy when 20 SMA crosses above 50 SMA on daily chart of TCS with trailing stop",
-                "response": json.dumps({
-                    "strategy_name": "SMA Golden Cross TCS",
-                    "description": "Trend-following strategy using 20/50 SMA golden cross on TCS daily.",
-                    "instrument": "TCS",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "sma", "period": 20, "condition": "crosses_above", "value": 50}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "sma", "period": 20, "condition": "crosses_below", "value": 50}
-                    ],
-                    "stop_loss": {"type": "trailing", "value": 3.0, "trail_pct": 1.5},
-                    "target": {"type": "trailing", "value": 8.0, "trail_pct": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.88,
-                    "reasoning": "SMA crossovers are robust trend signals on large-cap daily charts.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "SMA Golden Cross TCS",
+                        "description": "Trend-following strategy using 20/50 SMA golden cross on TCS daily.",
+                        "instrument": "TCS",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "sma",
+                                "period": 20,
+                                "condition": "crosses_above",
+                                "value": 50,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "sma",
+                                "period": 20,
+                                "condition": "crosses_below",
+                                "value": 50,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "trailing",
+                            "value": 3.0,
+                            "trail_pct": 1.5,
+                        },
+                        "target": {"type": "trailing", "value": 8.0, "trail_pct": 2.0},
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.88,
+                        "reasoning": "SMA crossovers are robust trend signals on large-cap daily charts.",
+                    }
+                ),
             },
             {
                 "prompt": "Short HDFC Bank when 9 EMA crosses below 21 EMA on 1 hour chart",
-                "response": json.dumps({
-                    "strategy_name": "EMA Death Cross HDFCBANK",
-                    "description": "Short-term trend reversal using 9/21 EMA crossover on HDFCBANK hourly.",
-                    "instrument": "HDFCBANK",
-                    "segment": "equity",
-                    "timeframe": "1h",
-                    "entry_conditions": [
-                        {"indicator": "ema", "period": 9, "condition": "crosses_below", "value": 21}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "ema", "period": 9, "condition": "crosses_above", "value": 21}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.2},
-                    "target": {"type": "risk_reward", "value": 2.5, "risk_reward_ratio": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.83,
-                    "reasoning": "9/21 EMA crossover captures short-term momentum shifts effectively.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "EMA Death Cross HDFCBANK",
+                        "description": "Short-term trend reversal using 9/21 EMA crossover on HDFCBANK hourly.",
+                        "instrument": "HDFCBANK",
+                        "segment": "equity",
+                        "timeframe": "1h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 9,
+                                "condition": "crosses_below",
+                                "value": 21,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 9,
+                                "condition": "crosses_above",
+                                "value": 21,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.2},
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 2.5,
+                            "risk_reward_ratio": 2.0,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.83,
+                        "reasoning": "9/21 EMA crossover captures short-term momentum shifts effectively.",
+                    }
+                ),
             },
             {
                 "prompt": "Create a strategy using 200 EMA as trend filter with 50 EMA crossovers for entry on INFY",
-                "response": json.dumps({
-                    "strategy_name": "200 EMA Trend Filter INFY",
-                    "description": "Only take 50 EMA crossover signals when aligned with 200 EMA trend direction.",
-                    "instrument": "INFY",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "ema", "period": 50, "condition": "crosses_above", "value": 200},
-                        {"indicator": "ema", "period": 200, "condition": ">", "value": 0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "ema", "period": 50, "condition": "crosses_below", "value": 200}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 2.0, "atr_multiplier": 2.0},
-                    "target": {"type": "risk_reward", "value": 3.0, "risk_reward_ratio": 2.5},
-                    "position_sizing": {"type": "pct_capital", "value": 15},
-                    "confidence": 0.90,
-                    "reasoning": "200 EMA trend filter reduces false signals from 50 EMA crossovers.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "200 EMA Trend Filter INFY",
+                        "description": "Only take 50 EMA crossover signals when aligned with 200 EMA trend direction.",
+                        "instrument": "INFY",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 50,
+                                "condition": "crosses_above",
+                                "value": 200,
+                            },
+                            {
+                                "indicator": "ema",
+                                "period": 200,
+                                "condition": ">",
+                                "value": 0,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 50,
+                                "condition": "crosses_below",
+                                "value": 200,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 2.0,
+                            "atr_multiplier": 2.0,
+                        },
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 3.0,
+                            "risk_reward_ratio": 2.5,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 15},
+                        "confidence": 0.90,
+                        "reasoning": "200 EMA trend filter reduces false signals from 50 EMA crossovers.",
+                    }
+                ),
             },
-
             # ── MACD strategies ─────────────────────────────────────────
             {
                 "prompt": "Buy when MACD line crosses above signal line on 15 minute Nifty chart",
-                "response": json.dumps({
-                    "strategy_name": "MACD Bullish Cross Nifty",
-                    "description": "Momentum entry using MACD bullish crossover on Nifty 15m.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_above", "value": 0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_below", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.0},
-                    "target": {"type": "fixed_pct", "value": 3.5},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.85,
-                    "reasoning": "MACD crossover captures momentum shifts early on index futures.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "MACD Bullish Cross Nifty",
+                        "description": "Momentum entry using MACD bullish crossover on Nifty 15m.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_above",
+                                "value": 0,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_below",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.0},
+                        "target": {"type": "fixed_pct", "value": 3.5},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.85,
+                        "reasoning": "MACD crossover captures momentum shifts early on index futures.",
+                    }
+                ),
             },
             {
                 "prompt": "Short when MACD histogram turns negative on Bank Nifty hourly with ATR-based stop",
-                "response": json.dumps({
-                    "strategy_name": "MACD Histogram Reversal BNF",
-                    "description": "Short BANKNIFTY when MACD histogram crosses below zero on hourly chart.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "futures",
-                    "timeframe": "1h",
-                    "entry_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "<", "value": 0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": ">", "value": 0}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 1.5, "atr_multiplier": 1.5},
-                    "target": {"type": "risk_reward", "value": 2.5, "risk_reward_ratio": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.84,
-                    "reasoning": "MACD histogram zero-cross is a clean momentum reversal signal.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "MACD Histogram Reversal BNF",
+                        "description": "Short BANKNIFTY when MACD histogram crosses below zero on hourly chart.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "futures",
+                        "timeframe": "1h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "<",
+                                "value": 0,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": ">",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 1.5,
+                            "atr_multiplier": 1.5,
+                        },
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 2.5,
+                            "risk_reward_ratio": 2.0,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.84,
+                        "reasoning": "MACD histogram zero-cross is a clean momentum reversal signal.",
+                    }
+                ),
             },
-
             # ── Bollinger Bands strategies ─────────────────────────────
             {
                 "prompt": "Buy when price touches lower Bollinger Band on 15 min chart and RSI is below 35",
-                "response": json.dumps({
-                    "strategy_name": "BB + RSI Combo Nifty",
-                    "description": "Mean-reversion at Bollinger lower band confirmed by oversold RSI.",
-                    "instrument": "NIFTY50",
-                    "segment": "equity",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "bollinger", "period": 20, "condition": "<", "value": -2},
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 35}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "bollinger", "period": 20, "condition": ">", "value": 1},
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 60}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.2},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.87,
-                    "reasoning": "BB lower band + RSI oversold provides strong mean-reversion edge.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "BB + RSI Combo Nifty",
+                        "description": "Mean-reversion at Bollinger lower band confirmed by oversold RSI.",
+                        "instrument": "NIFTY50",
+                        "segment": "equity",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "bollinger",
+                                "period": 20,
+                                "condition": "<",
+                                "value": -2,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 35,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "bollinger",
+                                "period": 20,
+                                "condition": ">",
+                                "value": 1,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 60,
+                            },
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.2},
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.87,
+                        "reasoning": "BB lower band + RSI oversold provides strong mean-reversion edge.",
+                    }
+                ),
             },
             {
                 "prompt": "Short when price hits upper Bollinger Band with 2.5 standard deviations on daily SBIN",
-                "response": json.dumps({
-                    "strategy_name": "BB Upper Band Short SBIN",
-                    "description": "Short SBIN when price extends beyond upper Bollinger Band (2.5 std dev).",
-                    "instrument": "SBIN",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "bollinger", "period": 20, "condition": ">", "value": 2.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "bollinger", "period": 20, "condition": "<", "value": 0.5}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "fixed_pct", "value": 4.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.80,
-                    "reasoning": "2.5 std dev upper band breach indicates statistically significant overextension.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "BB Upper Band Short SBIN",
+                        "description": "Short SBIN when price extends beyond upper Bollinger Band (2.5 std dev).",
+                        "instrument": "SBIN",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "bollinger",
+                                "period": 20,
+                                "condition": ">",
+                                "value": 2.5,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "bollinger",
+                                "period": 20,
+                                "condition": "<",
+                                "value": 0.5,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {"type": "fixed_pct", "value": 4.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.80,
+                        "reasoning": "2.5 std dev upper band breach indicates statistically significant overextension.",
+                    }
+                ),
             },
-
             # ── VWAP strategies ─────────────────────────────────────────
             {
                 "prompt": "Buy when price crosses above VWAP with volume 1.5x average on 5 min Nifty",
-                "response": json.dumps({
-                    "strategy_name": "VWAP Momentum Nifty",
-                    "description": "Intraday momentum entry on VWAP breakout with volume confirmation.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "5m",
-                    "entry_conditions": [
-                        {"indicator": "vwap", "condition": "crosses_above", "value": 0},
-                        {"indicator": "volume", "condition": ">", "value": 1.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "vwap", "condition": "crosses_below", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.7},
-                    "target": {"type": "fixed_pct", "value": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.86,
-                    "reasoning": "VWAP breakouts with volume confirmation are high-probability intraday setups.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "VWAP Momentum Nifty",
+                        "description": "Intraday momentum entry on VWAP breakout with volume confirmation.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "5m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "vwap",
+                                "condition": "crosses_above",
+                                "value": 0,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 1.5},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "vwap",
+                                "condition": "crosses_below",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.7},
+                        "target": {"type": "fixed_pct", "value": 2.0},
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.86,
+                        "reasoning": "VWAP breakouts with volume confirmation are high-probability intraday setups.",
+                    }
+                ),
             },
             {
                 "prompt": "Short when price falls below VWAP and volume is above average on Bank Nifty 15 min",
-                "response": json.dumps({
-                    "strategy_name": "VWAP Breakdown BNF",
-                    "description": "Short BANKNIFTY on VWAP breakdown with elevated volume.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "vwap", "condition": "crosses_below", "value": 0},
-                        {"indicator": "volume", "condition": ">", "value": 1.2}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "vwap", "condition": "crosses_above", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.8},
-                    "target": {"type": "fixed_pct", "value": 2.5},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.84,
-                    "reasoning": "VWAP acts as dynamic support/resistance; breakdown signals institutional selling.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "VWAP Breakdown BNF",
+                        "description": "Short BANKNIFTY on VWAP breakdown with elevated volume.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "vwap",
+                                "condition": "crosses_below",
+                                "value": 0,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 1.2},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "vwap",
+                                "condition": "crosses_above",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.8},
+                        "target": {"type": "fixed_pct", "value": 2.5},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.84,
+                        "reasoning": "VWAP acts as dynamic support/resistance; breakdown signals institutional selling.",
+                    }
+                ),
             },
-
             # ── Supertrend strategies ───────────────────────────────────
             {
                 "prompt": "Create a supertrend strategy with multiplier 3 and period 10 on 15 min Nifty futures",
-                "response": json.dumps({
-                    "strategy_name": "Supertrend Follower Nifty",
-                    "description": "Trend-following using Supertrend(10,3) on Nifty futures 15m.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "supertrend", "params": {"period": 10, "multiplier": 3},
-                         "condition": "==", "value": 1}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "supertrend", "params": {"period": 10, "multiplier": 3},
-                         "condition": "==", "value": -1}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 2.0, "atr_multiplier": 2.0},
-                    "target": {"type": "trailing", "value": 5.0, "trail_pct": 1.5},
-                    "position_sizing": {"type": "pct_capital", "value": 15},
-                    "confidence": 0.88,
-                    "reasoning": "Supertrend(10,3) balances responsiveness and noise reduction on index futures.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Supertrend Follower Nifty",
+                        "description": "Trend-following using Supertrend(10,3) on Nifty futures 15m.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "supertrend",
+                                "params": {"period": 10, "multiplier": 3},
+                                "condition": "==",
+                                "value": 1,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "supertrend",
+                                "params": {"period": 10, "multiplier": 3},
+                                "condition": "==",
+                                "value": -1,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 2.0,
+                            "atr_multiplier": 2.0,
+                        },
+                        "target": {"type": "trailing", "value": 5.0, "trail_pct": 1.5},
+                        "position_sizing": {"type": "pct_capital", "value": 15},
+                        "confidence": 0.88,
+                        "reasoning": "Supertrend(10,3) balances responsiveness and noise reduction on index futures.",
+                    }
+                ),
             },
-
             # ── Stochastic strategies ───────────────────────────────────
             {
                 "prompt": "Buy when stochastic %K crosses above %D below 20 level on daily ITC chart",
-                "response": json.dumps({
-                    "strategy_name": "Stochastic Bull Cross ITC",
-                    "description": "Oversold stochastic bullish crossover on ITC daily chart.",
-                    "instrument": "ITC",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "stochastic", "params": {"k_period": 14, "d_period": 3},
-                         "condition": "crosses_above", "value": 20}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "stochastic", "params": {"k_period": 14, "d_period": 3},
-                         "condition": "crosses_below", "value": 80}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "fixed_pct", "value": 4.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.81,
-                    "reasoning": "Stochastic bull cross from oversold is a classic reversal signal.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Stochastic Bull Cross ITC",
+                        "description": "Oversold stochastic bullish crossover on ITC daily chart.",
+                        "instrument": "ITC",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "stochastic",
+                                "params": {"k_period": 14, "d_period": 3},
+                                "condition": "crosses_above",
+                                "value": 20,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "stochastic",
+                                "params": {"k_period": 14, "d_period": 3},
+                                "condition": "crosses_below",
+                                "value": 80,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {"type": "fixed_pct", "value": 4.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.81,
+                        "reasoning": "Stochastic bull cross from oversold is a classic reversal signal.",
+                    }
+                ),
             },
-
             # ── ADX strategies ──────────────────────────────────────────
             {
                 "prompt": "Enter trade only when ADX is above 25 with SMA 20 crossovers on 1 hour chart",
-                "response": json.dumps({
-                    "strategy_name": "ADX Filtered SMA Cross",
-                    "description": "Only take SMA crossover signals when ADX confirms a strong trend.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "1h",
-                    "entry_conditions": [
-                        {"indicator": "adx", "period": 14, "condition": ">", "value": 25},
-                        {"indicator": "sma", "period": 20, "condition": "crosses_above", "value": 50}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "adx", "period": 14, "condition": "<", "value": 20}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 2.0, "atr_multiplier": 2.0},
-                    "target": {"type": "risk_reward", "value": 3.0, "risk_reward_ratio": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.89,
-                    "reasoning": "ADX filter eliminates choppy whipsaw trades during range-bound markets.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "ADX Filtered SMA Cross",
+                        "description": "Only take SMA crossover signals when ADX confirms a strong trend.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "1h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "adx",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 25,
+                            },
+                            {
+                                "indicator": "sma",
+                                "period": 20,
+                                "condition": "crosses_above",
+                                "value": 50,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "adx",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 20,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 2.0,
+                            "atr_multiplier": 2.0,
+                        },
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 3.0,
+                            "risk_reward_ratio": 2.0,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.89,
+                        "reasoning": "ADX filter eliminates choppy whipsaw trades during range-bound markets.",
+                    }
+                ),
             },
-
             # ── Multi-condition strategies ──────────────────────────────
             {
                 "prompt": "Buy when RSI below 30, MACD bullish crossover, and price above 200 EMA on daily TCS",
-                "response": json.dumps({
-                    "strategy_name": "Multi-Filter Bullish TCS",
-                    "description": "Confluence of RSI oversold, MACD momentum, and long-term trend alignment.",
-                    "instrument": "TCS",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30},
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_above", "value": 0},
-                        {"indicator": "ema", "period": 200, "condition": ">", "value": 0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70},
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_below", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "risk_reward", "value": 3.0, "risk_reward_ratio": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.91,
-                    "reasoning": "Multi-indicator conflation significantly improves signal quality.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Multi-Filter Bullish TCS",
+                        "description": "Confluence of RSI oversold, MACD momentum, and long-term trend alignment.",
+                        "instrument": "TCS",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            },
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_above",
+                                "value": 0,
+                            },
+                            {
+                                "indicator": "ema",
+                                "period": 200,
+                                "condition": ">",
+                                "value": 0,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            },
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_below",
+                                "value": 0,
+                            },
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 3.0,
+                            "risk_reward_ratio": 2.0,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.91,
+                        "reasoning": "Multi-indicator conflation significantly improves signal quality.",
+                    }
+                ),
             },
             {
                 "prompt": "Create a strategy with RSI divergence, volume spike, and Bollinger Band squeeze breakout",
-                "response": json.dumps({
-                    "strategy_name": "Volatility Squeeze Breakout",
-                    "description": "Combines RSI divergence, volume confirmation, and Bollinger squeeze for breakout timing.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "divergence_bullish", "value": 0},
-                        {"indicator": "volume", "condition": ">", "value": 2.0},
-                        {"indicator": "bollinger", "period": 20, "condition": ">", "value": 2.0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70},
-                        {"indicator": "volume", "condition": "<", "value": 0.8}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 2.0, "atr_multiplier": 2.0},
-                    "target": {"type": "fixed_pct", "value": 5.0},
-                    "position_sizing": {"type": "pct_capital", "value": 15},
-                    "confidence": 0.85,
-                    "reasoning": "Bollinger squeeze + volume spike + RSI divergence is a powerful breakout setup.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Volatility Squeeze Breakout",
+                        "description": "Combines RSI divergence, volume confirmation, and Bollinger squeeze for breakout timing.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "divergence_bullish",
+                                "value": 0,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 2.0},
+                            {
+                                "indicator": "bollinger",
+                                "period": 20,
+                                "condition": ">",
+                                "value": 2.0,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            },
+                            {"indicator": "volume", "condition": "<", "value": 0.8},
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 2.0,
+                            "atr_multiplier": 2.0,
+                        },
+                        "target": {"type": "fixed_pct", "value": 5.0},
+                        "position_sizing": {"type": "pct_capital", "value": 15},
+                        "confidence": 0.85,
+                        "reasoning": "Bollinger squeeze + volume spike + RSI divergence is a powerful breakout setup.",
+                    }
+                ),
             },
-
             # ── Forex / Crypto strategies ───────────────────────────────
             {
                 "prompt": "Create an RSI mean reversion strategy for EURUSD on 1 hour chart with 0.5% stop loss",
-                "response": json.dumps({
-                    "strategy_name": "RSI Mean Reversion EURUSD",
-                    "description": "RSI mean-reversion on EURUSD hourly with tight risk management.",
-                    "instrument": "EURUSD",
-                    "segment": "forex",
-                    "timeframe": "1h",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.5},
-                    "target": {"type": "fixed_pct", "value": 1.5},
-                    "position_sizing": {"type": "pct_capital", "value": 5},
-                    "confidence": 0.83,
-                    "reasoning": "Forex pairs exhibit strong mean-reversion characteristics on RSI extremes.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "RSI Mean Reversion EURUSD",
+                        "description": "RSI mean-reversion on EURUSD hourly with tight risk management.",
+                        "instrument": "EURUSD",
+                        "segment": "forex",
+                        "timeframe": "1h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.5},
+                        "target": {"type": "fixed_pct", "value": 1.5},
+                        "position_sizing": {"type": "pct_capital", "value": 5},
+                        "confidence": 0.83,
+                        "reasoning": "Forex pairs exhibit strong mean-reversion characteristics on RSI extremes.",
+                    }
+                ),
             },
             {
                 "prompt": "Buy Bitcoin when EMA 50 crosses above EMA 200 with volume above average on 4 hour",
-                "response": json.dumps({
-                    "strategy_name": "EMA Golden Cross BTC",
-                    "description": "Classic golden cross strategy on BTCUSD 4h with volume confirmation.",
-                    "instrument": "BTCUSD",
-                    "segment": "crypto",
-                    "timeframe": "4h",
-                    "entry_conditions": [
-                        {"indicator": "ema", "period": 50, "condition": "crosses_above", "value": 200},
-                        {"indicator": "volume", "condition": ">", "value": 1.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "ema", "period": 50, "condition": "crosses_below", "value": 200}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 3.0, "atr_multiplier": 3.0},
-                    "target": {"type": "trailing", "value": 15.0, "trail_pct": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 8},
-                    "confidence": 0.86,
-                    "reasoning": "Golden cross with volume is a strong trend-confirmation signal in crypto.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "EMA Golden Cross BTC",
+                        "description": "Classic golden cross strategy on BTCUSD 4h with volume confirmation.",
+                        "instrument": "BTCUSD",
+                        "segment": "crypto",
+                        "timeframe": "4h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 50,
+                                "condition": "crosses_above",
+                                "value": 200,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 1.5},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 50,
+                                "condition": "crosses_below",
+                                "value": 200,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 3.0,
+                            "atr_multiplier": 3.0,
+                        },
+                        "target": {"type": "trailing", "value": 15.0, "trail_pct": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 8},
+                        "confidence": 0.86,
+                        "reasoning": "Golden cross with volume is a strong trend-confirmation signal in crypto.",
+                    }
+                ),
             },
-
             # ── Options strategies ─────────────────────────────────────
             {
                 "prompt": "Create a strategy for buying Nifty call options when RSI is below 30 on daily chart",
-                "response": json.dumps({
-                    "strategy_name": "Oversold Call Buy Nifty",
-                    "description": "Buy ATM/ITM Nifty calls when RSI indicates oversold conditions on daily.",
-                    "instrument": "NIFTY50",
-                    "segment": "options",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 60}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 50.0},
-                    "target": {"type": "fixed_pct", "value": 100.0},
-                    "position_sizing": {"type": "risk_based", "value": 2, "risk_per_trade_pct": 2},
-                    "confidence": 0.78,
-                    "reasoning": "Buying oversold calls captures theta + delta when RSI reverts.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Oversold Call Buy Nifty",
+                        "description": "Buy ATM/ITM Nifty calls when RSI indicates oversold conditions on daily.",
+                        "instrument": "NIFTY50",
+                        "segment": "options",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 60,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 50.0},
+                        "target": {"type": "fixed_pct", "value": 100.0},
+                        "position_sizing": {
+                            "type": "risk_based",
+                            "value": 2,
+                            "risk_per_trade_pct": 2,
+                        },
+                        "confidence": 0.78,
+                        "reasoning": "Buying oversold calls captures theta + delta when RSI reverts.",
+                    }
+                ),
             },
             {
                 "prompt": "Strategy for selling Bank Nifty puts when VIX is below 15 and RSI above 50",
-                "response": json.dumps({
-                    "strategy_name": "Low Volatility Put Sell BNF",
-                    "description": "Sell OTM BANKNIFTY puts during low volatility with bullish RSI bias.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "options",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 50},
-                        {"indicator": "volume", "condition": "<", "value": 0.8}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 40}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 200.0},
-                    "target": {"type": "fixed_pct", "value": 50.0},
-                    "position_sizing": {"type": "risk_based", "value": 1, "risk_per_trade_pct": 1},
-                    "confidence": 0.75,
-                    "reasoning": "Short puts in low-vol regime benefit from volatility expansion.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Low Volatility Put Sell BNF",
+                        "description": "Sell OTM BANKNIFTY puts during low volatility with bullish RSI bias.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "options",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 50,
+                            },
+                            {"indicator": "volume", "condition": "<", "value": 0.8},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 40,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 200.0},
+                        "target": {"type": "fixed_pct", "value": 50.0},
+                        "position_sizing": {
+                            "type": "risk_based",
+                            "value": 1,
+                            "risk_per_trade_pct": 1,
+                        },
+                        "confidence": 0.75,
+                        "reasoning": "Short puts in low-vol regime benefit from volatility expansion.",
+                    }
+                ),
             },
-
             # ── Additional diverse strategies ───────────────────────────
             {
                 "prompt": "Create a gap-up opening strategy for intraday trading on Nifty with 0.5% target",
-                "response": json.dumps({
-                    "strategy_name": "Gap-Up Momentum Intraday",
-                    "description": "Fade the gap or follow gap momentum based on first 15-min candle direction.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "volume", "condition": ">", "value": 2.0},
-                        {"indicator": "vwap", "condition": ">", "value": 0}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 75}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.5},
-                    "target": {"type": "fixed_pct", "value": 1.5},
-                    "position_sizing": {"type": "pct_capital", "value": 15},
-                    "confidence": 0.72,
-                    "reasoning": "Gap openings with volume indicate strong institutional participation.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Gap-Up Momentum Intraday",
+                        "description": "Fade the gap or follow gap momentum based on first 15-min candle direction.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {"indicator": "volume", "condition": ">", "value": 2.0},
+                            {"indicator": "vwap", "condition": ">", "value": 0},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 75,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.5},
+                        "target": {"type": "fixed_pct", "value": 1.5},
+                        "position_sizing": {"type": "pct_capital", "value": 15},
+                        "confidence": 0.72,
+                        "reasoning": "Gap openings with volume indicate strong institutional participation.",
+                    }
+                ),
             },
             {
                 "prompt": "Mean reversion strategy using ATR bands on Gold XAUUSD daily chart",
-                "response": json.dumps({
-                    "strategy_name": "ATR Band Mean Reversion Gold",
-                    "description": "Buy/sell at ATR-based volatility bands on Gold daily chart.",
-                    "instrument": "XAUUSD",
-                    "segment": "forex",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "atr", "period": 14, "condition": ">", "value": 1.5},
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 35}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 65}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 2.0, "atr_multiplier": 2.0},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 8},
-                    "confidence": 0.80,
-                    "reasoning": "Gold exhibits strong mean-reversion at ATR extremes on daily timeframe.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "ATR Band Mean Reversion Gold",
+                        "description": "Buy/sell at ATR-based volatility bands on Gold daily chart.",
+                        "instrument": "XAUUSD",
+                        "segment": "forex",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "atr",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 1.5,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 35,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 65,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 2.0,
+                            "atr_multiplier": 2.0,
+                        },
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 8},
+                        "confidence": 0.80,
+                        "reasoning": "Gold exhibits strong mean-reversion at ATR extremes on daily timeframe.",
+                    }
+                ),
             },
             {
                 "prompt": "Buy Adani Enterprises when price breaks above 20-day high with volume confirmation",
-                "response": json.dumps({
-                    "strategy_name": "20-Day High Breakout ADANIENT",
-                    "description": "Momentum breakout on ADANIENT when price makes new 20-day high.",
-                    "instrument": "ADANIENT",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "sma", "period": 20, "condition": "crosses_above", "value": 20},
-                        {"indicator": "volume", "condition": ">", "value": 1.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 80}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 2.0},
-                    "target": {"type": "trailing", "value": 10.0, "trail_pct": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.76,
-                    "reasoning": "20-day high breakouts capture momentum on volatile stocks.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "20-Day High Breakout ADANIENT",
+                        "description": "Momentum breakout on ADANIENT when price makes new 20-day high.",
+                        "instrument": "ADANIENT",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "sma",
+                                "period": 20,
+                                "condition": "crosses_above",
+                                "value": 20,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 1.5},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 80,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 2.0},
+                        "target": {"type": "trailing", "value": 10.0, "trail_pct": 2.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.76,
+                        "reasoning": "20-day high breakouts capture momentum on volatile stocks.",
+                    }
+                ),
             },
             {
                 "prompt": "Create a pairs trading strategy for HDFC Bank and ICICI Bank using 50 SMA spread",
-                "response": json.dumps({
-                    "strategy_name": "Pairs Spread HDFCBANK-ICICIBANK",
-                    "description": "Statistical arbitrage using spread between HDFCBANK and ICICIBANK relative to 50 SMA.",
-                    "instrument": "HDFCBANK",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "sma", "period": 50, "condition": "<", "value": -2},
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 40}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "sma", "period": 50, "condition": ">", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 2.0},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 8},
-                    "confidence": 0.74,
-                    "reasoning": "Pairs trading exploits mean-reversion in correlated stock spreads.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Pairs Spread HDFCBANK-ICICIBANK",
+                        "description": "Statistical arbitrage using spread between HDFCBANK and ICICIBANK relative to 50 SMA.",
+                        "instrument": "HDFCBANK",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "sma",
+                                "period": 50,
+                                "condition": "<",
+                                "value": -2,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 40,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "sma",
+                                "period": 50,
+                                "condition": ">",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 2.0},
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 8},
+                        "confidence": 0.74,
+                        "reasoning": "Pairs trading exploits mean-reversion in correlated stock spreads.",
+                    }
+                ),
             },
             {
                 "prompt": "Scalping strategy using 1 minute chart with EMA 5 and 8 crossover on Bank Nifty",
-                "response": json.dumps({
-                    "strategy_name": "EMA Scalper BNF 1m",
-                    "description": "Ultra-short scalping using 5/8 EMA crossover on BANKNIFTY 1-minute chart.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "futures",
-                    "timeframe": "1m",
-                    "entry_conditions": [
-                        {"indicator": "ema", "period": 5, "condition": "crosses_above", "value": 8}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "ema", "period": 5, "condition": "crosses_below", "value": 8}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 0.3},
-                    "target": {"type": "fixed_pct", "value": 0.6},
-                    "position_sizing": {"type": "pct_capital", "value": 20},
-                    "confidence": 0.70,
-                    "reasoning": "Fast EMA crossover on 1m chart captures micro-trends for scalping.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "EMA Scalper BNF 1m",
+                        "description": "Ultra-short scalping using 5/8 EMA crossover on BANKNIFTY 1-minute chart.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "futures",
+                        "timeframe": "1m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 5,
+                                "condition": "crosses_above",
+                                "value": 8,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 5,
+                                "condition": "crosses_below",
+                                "value": 8,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 0.3},
+                        "target": {"type": "fixed_pct", "value": 0.6},
+                        "position_sizing": {"type": "pct_capital", "value": 20},
+                        "confidence": 0.70,
+                        "reasoning": "Fast EMA crossover on 1m chart captures micro-trends for scalping.",
+                    }
+                ),
             },
             {
                 "prompt": "Swing trading strategy using Fibonacci retracement 61.8% with RSI confirmation on LT",
-                "response": json.dumps({
-                    "strategy_name": "Fibonacci Swing LT",
-                    "description": "Buy at 61.8% Fibonacci retracement when RSI confirms oversold on LT daily.",
-                    "instrument": "LT",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "fibonacci", "params": {"level": 61.8}, "condition": "==", "value": 61.8},
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 40}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "fibonacci", "params": {"level": 38.2}, "condition": "==", "value": 38.2}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "fixed_pct", "value": 5.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.79,
-                    "reasoning": "61.8% Fibonacci level is a high-probability reversal zone.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Fibonacci Swing LT",
+                        "description": "Buy at 61.8% Fibonacci retracement when RSI confirms oversold on LT daily.",
+                        "instrument": "LT",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "fibonacci",
+                                "params": {"level": 61.8},
+                                "condition": "==",
+                                "value": 61.8,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 40,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "fibonacci",
+                                "params": {"level": 38.2},
+                                "condition": "==",
+                                "value": 38.2,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {"type": "fixed_pct", "value": 5.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.79,
+                        "reasoning": "61.8% Fibonacci level is a high-probability reversal zone.",
+                    }
+                ),
             },
         ]
         return pairs
@@ -933,70 +1343,113 @@ class StrategyDatasetBuilder:
         return [
             {
                 "prompt": "Nifty 15 minute chart par RSI 30 se neeche jab ho tab buy karo, 1% stop loss rakho",
-                "response": json.dumps({
-                    "strategy_name": "RSI Mean Reversion Nifty Hindi",
-                    "description": "RSI mean-reversion strategy for Nifty 15m — buys on oversold.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.0},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.82,
-                    "reasoning": "Hindi prompt detected — RSI mean-reversion is a universal setup.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "RSI Mean Reversion Nifty Hindi",
+                        "description": "RSI mean-reversion strategy for Nifty 15m — buys on oversold.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            }
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.0},
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.82,
+                        "reasoning": "Hindi prompt detected — RSI mean-reversion is a universal setup.",
+                    }
+                ),
             },
             {
                 "prompt": "Bank Nifty futures mein jab MACD bullish cross ho aur volume badhe tab buy karein",
-                "response": json.dumps({
-                    "strategy_name": "MACD Volume Breakout BNF Hindi",
-                    "description": "MACD bullish crossover with volume spike on BANKNIFTY futures.",
-                    "instrument": "BANKNIFTY",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_above", "value": 0},
-                        {"indicator": "volume", "condition": ">", "value": 1.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "macd", "params": {"fast": 12, "slow": 26, "signal": 9},
-                         "condition": "crosses_below", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.0},
-                    "target": {"type": "fixed_pct", "value": 3.0},
-                    "position_sizing": {"type": "pct_capital", "value": 12},
-                    "confidence": 0.83,
-                    "reasoning": "Hindi prompt — MACD + volume is a strong intraday combination.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "MACD Volume Breakout BNF Hindi",
+                        "description": "MACD bullish crossover with volume spike on BANKNIFTY futures.",
+                        "instrument": "BANKNIFTY",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_above",
+                                "value": 0,
+                            },
+                            {"indicator": "volume", "condition": ">", "value": 1.5},
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "macd",
+                                "params": {"fast": 12, "slow": 26, "signal": 9},
+                                "condition": "crosses_below",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.0},
+                        "target": {"type": "fixed_pct", "value": 3.0},
+                        "position_sizing": {"type": "pct_capital", "value": 12},
+                        "confidence": 0.83,
+                        "reasoning": "Hindi prompt — MACD + volume is a strong intraday combination.",
+                    }
+                ),
             },
             {
                 "prompt": "Reliance stock mein jab price 200 EMA ke upar ho aur RSI 50 se upar ho tab buy",
-                "response": json.dumps({
-                    "strategy_name": "EMA Trend Filter RELIANCE Hindi",
-                    "description": "Buy RELIANCE when above 200 EMA with RSI confirmation.",
-                    "instrument": "RELIANCE",
-                    "segment": "equity",
-                    "timeframe": "1d",
-                    "entry_conditions": [
-                        {"indicator": "ema", "period": 200, "condition": ">", "value": 0},
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 50}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "ema", "period": 200, "condition": "<", "value": 0}
-                    ],
-                    "stop_loss": {"type": "fixed_pct", "value": 1.5},
-                    "target": {"type": "risk_reward", "value": 2.5, "risk_reward_ratio": 2.0},
-                    "position_sizing": {"type": "pct_capital", "value": 10},
-                    "confidence": 0.85,
-                    "reasoning": "200 EMA trend filter + RSI confirmation is a robust swing setup.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "EMA Trend Filter RELIANCE Hindi",
+                        "description": "Buy RELIANCE when above 200 EMA with RSI confirmation.",
+                        "instrument": "RELIANCE",
+                        "segment": "equity",
+                        "timeframe": "1d",
+                        "entry_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 200,
+                                "condition": ">",
+                                "value": 0,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 50,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "ema",
+                                "period": 200,
+                                "condition": "<",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {"type": "fixed_pct", "value": 1.5},
+                        "target": {
+                            "type": "risk_reward",
+                            "value": 2.5,
+                            "risk_reward_ratio": 2.0,
+                        },
+                        "position_sizing": {"type": "pct_capital", "value": 10},
+                        "confidence": 0.85,
+                        "reasoning": "200 EMA trend filter + RSI confirmation is a robust swing setup.",
+                    }
+                ),
             },
         ]
 
@@ -1008,50 +1461,99 @@ class StrategyDatasetBuilder:
                     "Create an adaptive strategy that uses RSI in ranging markets and MACD in trending markets, "
                     "with dynamic position sizing based on ATR volatility"
                 ),
-                "response": json.dumps({
-                    "strategy_name": "Adaptive Regime Strategy",
-                    "description": "Switches between RSI mean-reversion (range-bound) and MACD trend-following (trending) using ADX regime detection with ATR-based sizing.",
-                    "instrument": "NIFTY50",
-                    "segment": "futures",
-                    "timeframe": "15m",
-                    "entry_conditions": [
-                        {"indicator": "adx", "period": 14, "condition": "<", "value": 25},
-                        {"indicator": "rsi", "period": 14, "condition": "<", "value": 30}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "rsi", "period": 14, "condition": ">", "value": 70}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 1.5, "atr_multiplier": 1.5},
-                    "target": {"type": "atr", "value": 3.0, "atr_multiplier": 3.0},
-                    "position_sizing": {"type": "risk_based", "value": 1.5, "risk_per_trade_pct": 1.5, "max_position_pct": 20},
-                    "confidence": 0.88,
-                    "reasoning": "Adaptive regime switching with ATR sizing provides robust performance across market conditions.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "Adaptive Regime Strategy",
+                        "description": "Switches between RSI mean-reversion (range-bound) and MACD trend-following (trending) using ADX regime detection with ATR-based sizing.",
+                        "instrument": "NIFTY50",
+                        "segment": "futures",
+                        "timeframe": "15m",
+                        "entry_conditions": [
+                            {
+                                "indicator": "adx",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 25,
+                            },
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": "<",
+                                "value": 30,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "rsi",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 70,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 1.5,
+                            "atr_multiplier": 1.5,
+                        },
+                        "target": {"type": "atr", "value": 3.0, "atr_multiplier": 3.0},
+                        "position_sizing": {
+                            "type": "risk_based",
+                            "value": 1.5,
+                            "risk_per_trade_pct": 1.5,
+                            "max_position_pct": 20,
+                        },
+                        "confidence": 0.88,
+                        "reasoning": "Adaptive regime switching with ATR sizing provides robust performance across market conditions.",
+                    }
+                ),
             },
             {
                 "prompt": (
                     "Build a momentum strategy that uses OBV divergence with price action confirmation "
                     "and ATR trailing stops on hourly EURUSD"
                 ),
-                "response": json.dumps({
-                    "strategy_name": "OBV Momentum Divergence EURUSD",
-                    "description": "Captures momentum shifts via OBV-price divergence with ATR trailing stops on EURUSD hourly.",
-                    "instrument": "EURUSD",
-                    "segment": "forex",
-                    "timeframe": "1h",
-                    "entry_conditions": [
-                        {"indicator": "obv", "condition": "divergence_bullish", "value": 0},
-                        {"indicator": "atr", "period": 14, "condition": ">", "value": 0.5}
-                    ],
-                    "exit_conditions": [
-                        {"indicator": "obv", "condition": "divergence_bearish", "value": 0}
-                    ],
-                    "stop_loss": {"type": "atr", "value": 1.5, "atr_multiplier": 1.5},
-                    "target": {"type": "trailing", "value": 3.0, "trail_pct": 0.5},
-                    "position_sizing": {"type": "risk_based", "value": 1.0, "risk_per_trade_pct": 1},
-                    "confidence": 0.82,
-                    "reasoning": "OBV divergence is a leading indicator of momentum exhaustion/reversal.",
-                }),
+                "response": json.dumps(
+                    {
+                        "strategy_name": "OBV Momentum Divergence EURUSD",
+                        "description": "Captures momentum shifts via OBV-price divergence with ATR trailing stops on EURUSD hourly.",
+                        "instrument": "EURUSD",
+                        "segment": "forex",
+                        "timeframe": "1h",
+                        "entry_conditions": [
+                            {
+                                "indicator": "obv",
+                                "condition": "divergence_bullish",
+                                "value": 0,
+                            },
+                            {
+                                "indicator": "atr",
+                                "period": 14,
+                                "condition": ">",
+                                "value": 0.5,
+                            },
+                        ],
+                        "exit_conditions": [
+                            {
+                                "indicator": "obv",
+                                "condition": "divergence_bearish",
+                                "value": 0,
+                            }
+                        ],
+                        "stop_loss": {
+                            "type": "atr",
+                            "value": 1.5,
+                            "atr_multiplier": 1.5,
+                        },
+                        "target": {"type": "trailing", "value": 3.0, "trail_pct": 0.5},
+                        "position_sizing": {
+                            "type": "risk_based",
+                            "value": 1.0,
+                            "risk_per_trade_pct": 1,
+                        },
+                        "confidence": 0.82,
+                        "reasoning": "OBV divergence is a leading indicator of momentum exhaustion/reversal.",
+                    }
+                ),
             },
         ]
 
@@ -1196,7 +1698,9 @@ class StrategyDatasetBuilder:
             return split["test"]
         return None
 
-    def export_to_jsonl(self, path: str, pairs: Optional[List[Dict[str, str]]] = None) -> None:
+    def export_to_jsonl(
+        self, path: str, pairs: Optional[List[Dict[str, str]]] = None
+    ) -> None:
         """
         Export training pairs to JSONL format for external tools.
 
@@ -1230,7 +1734,9 @@ class StrategyDatasetBuilder:
         """
         _load_datasets()
         pairs = self.create_training_pairs()
-        logger.info(f"Auto-trainer build requested since={since} — using {len(pairs)} pairs")
+        logger.info(
+            f"Auto-trainer build requested since={since} — using {len(pairs)} pairs"
+        )
         return self._pairs_to_dataset(pairs)
 
     def estimate_samples(self, since: datetime) -> int:
@@ -1242,11 +1748,58 @@ class StrategyDatasetBuilder:
         pairs = self.create_training_pairs()
         return {
             "count": len(pairs),
-            "formula_examples": [
-                pair["response"] for pair in pairs[:5]
-            ],
+            "formula_examples": [pair["response"] for pair in pairs[:5]],
             "timestamp": datetime.utcnow().isoformat(),
         }
+
+    def get_feature_distributions(
+        self,
+        since: Optional[datetime] = None,
+    ) -> Dict[str, List[float]]:
+        """Return numeric feature distributions for drift detection.
+
+        Extracts indicator threshold values from the current strategy formula
+        snapshot.  These distributions are compared against reference
+        distributions stored on a trained model version to detect regime or
+        strategy shifts.
+        """
+        snapshot = self.get_formula_snapshot()
+        distributions: Dict[str, List[float]] = {}
+
+        for idx, raw in enumerate(snapshot.get("formula_examples", [])):
+            try:
+                strat = json.loads(raw) if isinstance(raw, str) else raw
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(strat, dict):
+                continue
+
+            for cond in strat.get("entry_conditions", []) + strat.get(
+                "exit_conditions", []
+            ):
+                if not isinstance(cond, dict):
+                    continue
+                indicator = cond.get("indicator")
+                value = cond.get("value")
+                if indicator is None or value is None:
+                    continue
+                key = f"{indicator}_{idx}"
+                if isinstance(value, (int, float)):
+                    distributions.setdefault(key, []).append(float(value))
+                elif isinstance(value, list):
+                    try:
+                        distributions.setdefault(key, []).extend(
+                            float(v) for v in value
+                        )
+                    except (TypeError, ValueError):
+                        pass
+
+        # Ensure every feature has at least a couple of samples for the KS test.
+        for key, values in list(distributions.items()):
+            if len(values) < 2:
+                distributions[key] = values + values[:1] if values else [0.0, 0.0]
+
+        return distributions
 
 
 # =============================================================================
@@ -1309,7 +1862,10 @@ class MarketDatasetBuilder:
         df["rsi_7"] = self._compute_rsi(df["close"], period=7)
 
         # MACD
-        df["macd_line"] = df["close"].ewm(span=12, adjust=False).mean() - df["close"].ewm(span=26, adjust=False).mean()
+        df["macd_line"] = (
+            df["close"].ewm(span=12, adjust=False).mean()
+            - df["close"].ewm(span=26, adjust=False).mean()
+        )
         df["macd_signal"] = df["macd_line"].ewm(span=9, adjust=False).mean()
         df["macd_histogram"] = df["macd_line"] - df["macd_signal"]
 
@@ -1415,15 +1971,14 @@ class MarketDatasetBuilder:
         """
         contexts: List[Dict[str, Any]] = []
         for i in range(window_size, len(df)):
-            window = df.iloc[i - window_size : i]
             latest = df.iloc[i - 1]
 
             # Build a natural-language description of current market state
             trend = "uptrend" if latest["price_vs_sma20"] > 0 else "downtrend"
             rsi_state = (
-                "oversold" if latest["rsi_14"] < 30
-                else "overbought" if latest["rsi_14"] > 70
-                else "neutral"
+                "oversold"
+                if latest["rsi_14"] < 30
+                else "overbought" if latest["rsi_14"] > 70 else "neutral"
             )
 
             context_text = (
@@ -1436,16 +1991,18 @@ class MarketDatasetBuilder:
                 f"Price vs VWAP: {latest['vwap_deviation']:.2f}%."
             )
 
-            contexts.append({
-                "text": context_text,
-                "metadata": {
-                    "timestamp": str(latest.name) if hasattr(latest, "name") else i,
-                    "close": float(latest["close"]),
-                    "rsi_14": float(latest["rsi_14"]),
-                    "trend": trend,
-                    "rsi_state": rsi_state,
-                },
-            })
+            contexts.append(
+                {
+                    "text": context_text,
+                    "metadata": {
+                        "timestamp": str(latest.name) if hasattr(latest, "name") else i,
+                        "close": float(latest["close"]),
+                        "rsi_14": float(latest["rsi_14"]),
+                        "trend": trend,
+                        "rsi_state": rsi_state,
+                    },
+                }
+            )
 
         logger.info(f"Created {len(contexts)} market context examples.")
         return contexts
@@ -1515,7 +2072,9 @@ class MarketDatasetBuilder:
         period = condition.get("period", 14)
 
         # Resolve column name for the indicator
-        col = self._resolve_indicator_column(df, indicator, period, condition.get("params"))
+        col = self._resolve_indicator_column(
+            df, indicator, period, condition.get("params")
+        )
         if col not in df.columns:
             logger.warning(f"Indicator column '{col}' not found — returning all False.")
             return pd.Series(False, index=df.index)
@@ -1532,9 +2091,17 @@ class MarketDatasetBuilder:
             "!=": lambda s, v: s != v,
             "crosses_above": lambda s, v: (s > v) & (s.shift(1) <= v),
             "crosses_below": lambda s, v: (s < v) & (s.shift(1) >= v),
-            "between": lambda s, v: s.between(v[0], v[1]) if isinstance(v, (list, tuple)) and len(v) == 2 else pd.Series(False, index=s.index),
-            "divergence_bullish": lambda s, v: self._detect_bullish_divergence(s, df["close"]),
-            "divergence_bearish": lambda s, v: self._detect_bearish_divergence(s, df["close"]),
+            "between": lambda s, v: (
+                s.between(v[0], v[1])
+                if isinstance(v, (list, tuple)) and len(v) == 2
+                else pd.Series(False, index=s.index)
+            ),
+            "divergence_bullish": lambda s, v: self._detect_bullish_divergence(
+                s, df["close"]
+            ),
+            "divergence_bearish": lambda s, v: self._detect_bearish_divergence(
+                s, df["close"]
+            ),
         }
 
         op_fn = op_map.get(operator)
@@ -1611,7 +2178,9 @@ class MarketDatasetBuilder:
     def export_features_csv(self, df: pd.DataFrame, path: str) -> None:
         """Export indicator features to CSV."""
         df.to_csv(path, index=True)
-        logger.info(f"Exported features to {path} — {len(df)} rows, {len(df.columns)} columns.")
+        logger.info(
+            f"Exported features to {path} — {len(df)} rows, {len(df.columns)} columns."
+        )
 
 
 # =============================================================================

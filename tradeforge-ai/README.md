@@ -7,16 +7,22 @@ A production-grade auto-trading software with **custom LLM**, **auto-training pi
 ## Architecture Overview
 
 ```
-Frontend (React + TypeScript)          Backend (Python FastAPI)
-+ AI Chat Assistant     <──REST──>     + LLM Engine (Strategy Generation)
-+ Training Dashboard    <──REST──>     + Strategy Parser (NL → Code)
-+ Model Manager         <──REST──>     + Backtest Engine
-+ Auto-Execution Panel  <──REST──>     + Auto-Training (20-min cron)
-+ Trading Terminal      <──WebSocket──> + Live Execution Engine
-                                        + Risk Manager
-                                        + Model Registry
-                                        + Broker Connectors
-                                        + Market Data Ingestion
+Frontend (React 19 + TypeScript + Vite)
++ AI Chat Assistant      <──REST──>     Backend (Python 3.11 + FastAPI)
++ Training Dashboard     <──REST──>     + LLM Engine (Strategy Generation)
++ Model Manager          <──REST──>     + RAG Engine (Retrieval Augmentation)
++ Auto-Execution Panel   <──REST──>     + Strategy Parser (NL → Code)
++ Trading Terminal       <──WebSocket──>+ Live Execution Engine
+                                         + Risk Manager
++ Live/Paper Trading     <──REST──>     + Model Registry (versions + shadow mode)
+                                         + Auto-Training (Celery beat / 20 min)
+                                         + Broker Connectors (Paper, Angel, Zerodha, Fyers, Upstox)
+                                         + Market Data Ingestion
+
+Data & Infrastructure
++ MongoDB (Beanie ODM)   + Redis (Celery broker/cache)
++ Prometheus metrics     + Sentry error reporting
++ MLflow tracking        + S3/MinIO artifact store
 ```
 
 ---
@@ -33,17 +39,39 @@ Frontend (React + TypeScript)          Backend (Python FastAPI)
 ### Auto-Training Pipeline (Every 20 Minutes)
 1. Detect new market data since last training
 2. Detect strategy formula changes
-3. Build updated training dataset
-4. Fine-tune LLM incrementally (LoRA/PEFT)
-5. Validate via backtest
-6. If improved → deploy as active model
-7. If worse → keep old model, archive new one
+3. Detect distribution drift against the active model
+4. Build updated training dataset
+5. Fine-tune LLM incrementally (LoRA/PEFT)
+6. Validate via backtest
+7. Upload checkpoint artifact to S3/MinIO
+8. If improved → deploy as active model (or shadow first)
+9. If worse → keep old model, archive new one
 
 ### Live Trade Execution
 - Auto-signal generation from trained model
 - Paper trading mode (virtual ₹10L capital)
 - Live mode via broker APIs (Angel One, Zerodha, Fyers, Upstox)
+- Live-trading approval gate (admin approval required)
+- Broker circuit breaker on consecutive failures
 - Real-time WebSocket streaming
+
+### Security & Guardrails
+- Prompt-injection guard (`core.prompt_guard`)
+- Input sanitization (`core.sanitization`)
+- JWT authentication + admin approval for live trading
+- Fernet encryption for broker credentials
+
+### Observability
+- Prometheus metrics for training, inference, execution, risk, and drift
+- Sentry error reporting with release/environment/user context
+- Structured JSON logging via Loguru
+
+### MLOps
+- MLflow experiment tracking
+- S3/MinIO model artifact storage
+- Kolmogorov-Smirnov drift detection on strategy feature distributions
+- Model registry with active + shadow/challenger versions
+- Shadow inference endpoint to compare active vs challenger
 
 ### Risk Management (11 Guards)
 - Kill switch (emergency halt)
@@ -66,18 +94,25 @@ Frontend (React + TypeScript)          Backend (Python FastAPI)
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19 + TypeScript + Tailwind CSS + shadcn/ui + Recharts |
+| Frontend | React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS + shadcn/ui + Recharts |
 | Backend API | FastAPI + Uvicorn (ASGI) |
 | WebSocket | python-socketio |
-| Database | SQLite + SQLAlchemy 2.0 |
+| Database | MongoDB + Beanie ODM |
+| Cache / Task Queue | Redis + Celery |
 | LLM | Transformers + PEFT (LoRA) + DialoGPT-medium |
 | ML Training | PyTorch + Datasets + Accelerate |
 | Reinforcement Learning | Custom Q-Learning + DQN |
 | Indicators | Pandas + NumPy + 21 custom indicators |
 | Market Data | NSE India API + Yahoo Finance |
 | Broker APIs | httpx (async HTTP) |
-| Scheduling | APScheduler |
+| Scheduling | Celery Beat |
 | Logging | Loguru |
+| Metrics | Prometheus |
+| Error Tracking | Sentry |
+| Experiment Tracking | MLflow |
+| Artifact Storage | S3 / MinIO |
+| CI/CD | GitHub Actions + Docker |
+| Lint/Format | Ruff, Black, ESLint, TypeScript |
 
 ---
 
@@ -86,49 +121,70 @@ Frontend (React + TypeScript)          Backend (Python FastAPI)
 ```
 tradeforge-ai/
 ├── backend/
-│   ├── main.py                    # FastAPI entry point (394 lines)
-│   ├── config.py                  # Pydantic settings (154 lines)
+│   ├── main.py                    # FastAPI entry point
+│   ├── config.py                  # Pydantic settings
 │   ├── requirements.txt           # All dependencies
 │   ├── Dockerfile                 # Container config
+│   ├── celery_app.py              # Celery app + beat schedule
 │   ├── database/
-│   │   ├── models.py              # 10 ORM models + 7 enums (623 lines)
-│   │   └── connection.py          # Engine + sessions (97 lines)
+│   │   ├── models.py              # Beanie/MongoDB document models
+│   │   └── connection.py          # MongoDB init
 │   ├── core/
-│   │   ├── llm_engine.py          # Custom LLM (1,694 lines)
-│   │   ├── strategy_parser.py     # NL → Code (1,173 lines)
-│   │   ├── indicators.py          # 21 indicators (721 lines)
-│   │   ├── backtest_engine.py     # Backtesting (1,014 lines)
-│   │   ├── execution_engine.py    # Live execution (701 lines)
-│   │   ├── risk_manager.py        # Risk guards (655 lines)
-│   │   ├── auto_trainer.py        # 20-min pipeline (1,047 lines)
-│   │   ├── model_registry.py      # Version mgmt (545 lines)
+│   │   ├── llm_engine.py          # Custom LLM + shadow inference
+│   │   ├── strategy_parser.py     # NL → Code
+│   │   ├── indicators.py          # 21 indicators
+│   │   ├── backtest_engine.py     # Backtesting
+│   │   ├── execution_engine.py    # Live execution
+│   │   ├── risk_manager.py        # Risk guards
+│   │   ├── auto_trainer.py        # Auto-training pipeline
+│   │   ├── model_registry.py      # Version mgmt + shadow mode
+│   │   ├── artifact_store.py      # S3/MinIO checkpoint uploads
+│   │   ├── drift_detector.py      # KS-test drift detection
+│   │   ├── metrics.py             # Prometheus metrics
+│   │   ├── prompt_guard.py        # Prompt-injection detection
+│   │   ├── sanitization.py        # Input sanitization
+│   │   ├── validation_backtest_adapter.py  # Train/validate bridge
 │   │   ├── broker/
-│   │   │   ├── base.py            # Abstract interface (438 lines)
-│   │   │   ├── paper_broker.py    # Paper trading (507 lines)
-│   │   │   ├── angel_one.py       # Angel One (527 lines)
-│   │   │   ├── zerodha.py         # Zerodha (614 lines)
-│   │   │   └── fyers.py           # Fyers (749 lines)
+│   │   │   ├── base.py            # Abstract interface
+│   │   │   ├── paper_broker.py    # Paper trading
+│   │   │   ├── angel_one.py       # Angel One
+│   │   │   ├── zerodha.py         # Zerodha
+│   │   │   ├── fyers.py           # Fyers
+│   │   │   └── upstox.py          # Upstox
 │   │   └── market_data/
-│   │       ├── ingestor.py        # Data ingestion (479 lines)
-│   │       └── ohlc_builder.py    # Candle builder (307 lines)
+│   │       ├── ingestor.py        # Data ingestion
+│   │       └── ohlc_builder.py    # Candle builder
 │   ├── routers/
-│   │   ├── llm.py                 # LLM API (367 lines)
-│   │   ├── strategies.py          # Strategy CRUD (456 lines)
-│   │   ├── backtest.py            # Backtest API (387 lines)
-│   │   ├── train.py               # Training API (366 lines)
-│   │   ├── models.py              # Model mgmt API (391 lines)
-│   │   ├── execute.py             # Execution API (416 lines)
-│   │   └── market.py              # Market data API (443 lines)
+│   │   ├── llm.py                 # LLM API (incl. shadow generation)
+│   │   ├── strategies.py          # Strategy CRUD
+│   │   ├── backtest.py            # Backtest API
+│   │   ├── train.py               # Training API
+│   │   ├── models.py              # Model mgmt API (shadow + promote)
+│   │   ├── execute.py             # Execution API
+│   │   ├── market.py              # Market data API
+│   │   ├── auth.py                # Auth + live approval
+│   │   ├── audit.py               # Audit log
+│   │   ├── analytics.py           # Dashboard analytics
+│   │   ├── brokers.py             # Broker config
+│   │   └── settings.py            # Settings
+│   ├── tasks/                     # Celery tasks
+│   │   ├── training.py            # Auto-training worker
+│   │   ├── backtest.py            # Backtest worker
+│   │   ├── market_data.py         # Market ingest worker
+│   │   └── execution.py           # Signal worker
 │   ├── training/
-│   │   ├── dataset_builder.py     # Dataset builder (1,623 lines)
-│   │   ├── fine_tuner.py          # LoRA fine-tuning (976 lines)
-│   │   └── reinforcement.py       # RL agent (1,446 lines)
+│   │   ├── dataset_builder.py     # Dataset builder
+│   │   ├── fine_tuner.py          # LoRA fine-tuning
+│   │   └── reinforcement.py       # RL agent
 │   ├── websocket/
-│   │   └── server.py              # WebSocket server (392 lines)
-│   └── shared/
-│       └── schemas.py             # Pydantic schemas (425 lines)
-├── frontend/                      # React app (existing)
+│   │   └── server.py              # WebSocket server
+│   └── tests/                     # pytest suite
+├── frontend/                      # React app + Vitest + Playwright
 ├── docker-compose.yml
+├── .github/workflows/ci.yml       # GitHub Actions CI/CD
+├── .pre-commit-config.yaml        # Pre-commit hooks
+├── scripts/                       # Backup/restore helpers
+├── monitoring/                    # Prometheus config
 ├── .env.example
 └── README.md
 ```
@@ -160,24 +216,41 @@ cp .env.example .env
 # Edit .env with your broker API keys
 ```
 
-### 3. Run Backend
+### 3. Start Dependencies
+Make sure MongoDB and Redis are running locally (or use Docker Compose):
+```bash
+# macOS with Homebrew
+brew services start mongodb-community@7.0
+brew services start redis
+```
+
+### 4. Run Backend
 ```bash
 cd backend
-python -c "from database.connection import init_db; init_db()"  # Create tables
+source .venv/bin/activate
+python -c "import asyncio; from database.connection import init_db; asyncio.run(init_db())"
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 API docs at: http://localhost:8000/docs
 
-### 4. Run Frontend
+### 5. Run Celery Worker & Beat
 ```bash
-cd frontend
-npm run dev
+cd backend
+source .venv/bin/activate
+celery -A celery_app worker --loglevel=info --concurrency=2
+celery -A celery_app beat --loglevel=info
 ```
 
-App at: http://localhost:5173
+### 6. Run Frontend
+```bash
+cd frontend
+npm run dev -- --port 3000
+```
 
-### 5. Run with Docker
+App at: http://localhost:3000
+
+### 7. Run with Docker
 ```bash
 docker-compose up --build
 ```
@@ -188,22 +261,25 @@ docker-compose up --build
 
 | Tag | Prefix | Endpoints |
 |-----|--------|-----------|
-| **LLM** | `/api/v1/llm` | Generate strategy, Chat, Explain, Analyze |
+| **LLM** | `/api/v1/llm` | Generate strategy, shadow generation, Chat, Explain, Analyze |
 | **Strategies** | `/api/v1/strategies` | CRUD + Deploy + Stop + Duplicate |
 | **Backtest** | `/api/v1/backtest` | Run + Results + Equity Curve + Trade Log |
 | **Training** | `/api/v1/train` | Trigger + Status + Start/Stop Auto + Jobs |
-| **Models** | `/api/v1/models` | List + Activate + Rollback + Compare |
+| **Models** | `/api/v1/models` | List + Activate + Rollback + Compare + Shadow + Promote |
 | **Execution** | `/api/v1/execute` | Signal + Positions + Portfolio + Kill Switch |
 | **Market Data** | `/api/v1/market` | Historical + LTP + Nifty 50 + Indicators |
+| **Auth / Users** | `/api/v1/auth` | Login, register, live-approval |
+| **Audit** | `/api/v1/audit` | Audit log |
+| **Analytics** | `/api/v1/analytics` | Dashboard metrics |
 
 ---
 
 ## How the Auto-Training Works
 
 ```
-Every 20 minutes:
+Every 20 minutes (Celery beat):
     ┌─────────────────┐
-    │  Check Changes  │ ← New data? Formula changed?
+    │  Check Changes  │ ← New data? Formula changed? Drift detected?
     └────────┬────────┘
              ▼
     ┌─────────────────┐
@@ -219,8 +295,12 @@ Every 20 minutes:
     └────────┬────────┘
              ▼
     ┌─────────────────┐
-    │ Compare & Deploy│ ← Better? → Activate. Worse? → Archive.
-    └─────────────────┘
+    │ Upload Artifact │ ← S3/MinIO checkpoint archive
+    └────────┬────────┘
+             ▼
+    ┌─────────────────┐
+    │ Compare & Deploy│ ← Better? → Activate (or shadow).
+    └─────────────────┘     Worse? → Archive.
 ```
 
 ---
@@ -264,7 +344,18 @@ Every 20 minutes:
 - **Daily Loss Limit**: Auto-stops trading if daily loss exceeded
 - **Circuit Breaker**: 3 consecutive training failures pause auto-training
 - **Model Validation**: Every trained model is backtested before deployment
-- **Manual Approval**: Live deployment requires explicit user approval
+- **Manual Approval**: Live deployment requires explicit admin approval
+
+---
+
+## Monitoring & Operations
+
+- **Prometheus**: metrics exposed on `/metrics` (training, inference, execution, risk, drift)
+- **Sentry**: set `SENTRY_DSN` for error tracking
+- **MLflow**: set `MLFLOW_TRACKING_URI` for experiment tracking
+- **Logs**: structured logs written to `backend/logs/tradeforge.log`
+- **Backups**: use `scripts/backup-mongo.sh` and `scripts/restore-mongo.sh`
+- **Pre-commit**: install with `pre-commit install` to run ruff, black, ESLint, and TypeScript checks
 
 ---
 

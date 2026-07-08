@@ -139,7 +139,7 @@ export default function StrategyEditor({
           <div className="max-w-[700px] space-y-4">
             <ConditionBuilder
               title="Entry Conditions"
-              conditions={form.watch('entryConditions')}
+              conditions={form.watch('entryConditions') ?? []}
               onChange={(conds) => form.setValue('entryConditions', conds, { shouldValidate: true })}
             />
             {fieldError('entryConditions')}
@@ -156,18 +156,18 @@ export default function StrategyEditor({
           <div className="max-w-[700px] space-y-4">
             <ConditionBuilder
               title="Exit Conditions"
-              conditions={form.watch('exitConditions')}
+              conditions={form.watch('exitConditions') ?? []}
               onChange={(conds) => form.setValue('exitConditions', conds, { shouldValidate: true })}
             />
             {fieldError('exitConditions')}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <StopLossEditor
-                value={form.watch('stopLoss')}
+                value={form.watch('stopLoss') ?? { type: 'fixed', value: 1 }}
                 onChange={(sl) => form.setValue('stopLoss', sl, { shouldValidate: true })}
                 error={form.formState.errors.stopLoss?.message}
               />
               <TargetEditor
-                value={form.watch('target')}
+                value={form.watch('target') ?? { type: 'fixed', value: 2 }}
                 onChange={(t) => form.setValue('target', t, { shouldValidate: true })}
                 error={form.formState.errors.target?.message}
               />
@@ -178,7 +178,7 @@ export default function StrategyEditor({
         {activeTab === 'risk' && (
           <div className="max-w-[700px] space-y-4">
             <PositionSizingEditor
-              value={form.watch('positionSizing')}
+              value={form.watch('positionSizing') ?? { type: 'percent', value: 10 }}
               onChange={(ps) => form.setValue('positionSizing', ps, { shouldValidate: true })}
               error={form.formState.errors.positionSizing?.message}
             />

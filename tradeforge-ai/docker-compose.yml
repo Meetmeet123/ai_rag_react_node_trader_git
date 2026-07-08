@@ -9,15 +9,21 @@ services:
     container_name: tradeforge-backend
     ports:
       - "8000:8000"
-      - "8765:8765"
     environment:
       - MONGODB_URI=mongodb://mongo:27017/tradeforge
       - MONGODB_DB_NAME=tradeforge
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - TRAINING_INTERVAL_MINUTES=20
       - DEBUG=false
     env_file:
       - .env
     volumes:
+      # NOTE: The backend image runs as a non-root user. On first run you may
+      # need to seed host bind-mount directories with correct ownership, e.g.:
+      #   mkdir -p data models strategies training/checkpoints && \
+      #     chown -R 999:999 data models strategies training/checkpoints
+      # Alternatively, uncomment the init helper below.
       - ./data:/app/data
       - ./models:/app/models
       - ./strategies:/app/strategies
@@ -28,12 +34,28 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - tradeforge
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # Optional: one-shot init container to fix bind-mount ownership for non-root user
+  # backend_init:
+  #   image: busybox:latest
+  #   command: |
+  #     sh -c "mkdir -p /mnt/data /mnt/models /mnt/strategies /mnt/training/checkpoints &&
+  #            chown -R 999:999 /mnt/data /mnt/models /mnt/strategies /mnt/training"
+  #   volumes:
+  #     - ./data:/mnt/data
+  #     - ./models:/mnt/models
+  #     - ./strategies:/mnt/strategies
+  #     - ./training/checkpoints:/mnt/training/checkpoints
+  #   networks:
+  #     - tradeforge
 
   # Celery worker
   celery_worker:
@@ -61,6 +83,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - tradeforge
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Celery beat scheduler
   celery_beat:
@@ -88,6 +118,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - tradeforge
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Frontend (React SPA)
   frontend:
@@ -98,11 +136,13 @@ services:
     ports:
       - "3000:80"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000/ws
+      - VITE_API_URL=/api
+      - VITE_WS_URL=/socket.io
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - tradeforge
 
   # MongoDB (primary database)
   mongo:
@@ -113,6 +153,8 @@ services:
     volumes:
       - mongo_data:/data/db
     restart: unless-stopped
+    networks:
+      - tradeforge
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -129,12 +171,126 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    networks:
+      - tradeforge
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Prometheus metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tradeforge-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+    networks:
+      - tradeforge
+    depends_on:
+      - backend
+
+  # Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tradeforge-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - tradeforge
+    depends_on:
+      - prometheus
+
+  # MLflow tracking server
+  mlflow:
+    image: python:3.11-slim
+    container_name: tradeforge-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://localhost:5000}
+      - MLFLOW_EXPERIMENT_NAME=${MLFLOW_EXPERIMENT_NAME:-tradeforge}
+    volumes:
+      - mlflow_data:/mlflow
+    command: >
+      bash -c "pip install --no-cache-dir mlflow &&
+               mlflow server
+               --backend-store-uri sqlite:///mlflow/mlflow.db
+               --default-artifact-root /mlflow/artifacts
+               --host 0.0.0.0
+               --port 5000"
+    restart: unless-stopped
+    networks:
+      - tradeforge
+
+  # MinIO S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    container_name: tradeforge-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - tradeforge
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Flower Celery monitoring
+  flower:
+    image: mher/flower:latest
+    container_name: tradeforge-flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    command: celery flower --broker=redis://redis:6379/0 --port=5555
+    restart: unless-stopped
+    networks:
+      - tradeforge
+    depends_on:
+      - redis
+      - celery_worker
+
 volumes:
   mongo_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
+  mlflow_data:
+  minio_data:
+
+networks:
+  tradeforge:
+    name: tradeforge
+    driver: bridge

@@ -39,8 +39,6 @@ Components:
     TradeForgeRAG: Main orchestrator bringing all components together
 """
 
-from typing import TYPE_CHECKING
-
 # Core exports - these are the primary interfaces users will interact with
 from .rag_engine import TradeForgeRAG
 

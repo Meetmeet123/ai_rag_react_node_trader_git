@@ -11,11 +11,12 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class TradingSegment(str, Enum):
     """Indian market trading segments"""
+
     EQUITY = "equity"
     FUTURES = "futures"
     OPTIONS = "options"
@@ -26,6 +27,7 @@ class TradingSegment(str, Enum):
 
 class TimeFrame(str, Enum):
     """Supported trading timeframes"""
+
     SCALPING_1M = "1m"
     SCALPING_5M = "5m"
     INTRADAY_15M = "15m"
@@ -39,6 +41,7 @@ class TimeFrame(str, Enum):
 
 class DocumentType(str, Enum):
     """Types of documents stored in RAG"""
+
     STRATEGY = "strategy"
     BACKTEST_RESULT = "backtest_result"
     MARKET_REGIME = "market_regime"
@@ -50,6 +53,7 @@ class DocumentType(str, Enum):
 
 class BaseDocument(BaseModel):
     """Base document model with common fields"""
+
     id: str = Field(..., description="Unique document identifier")
     content: str = Field(..., description="Document text content")
     doc_type: DocumentType = Field(..., description="Document type")
@@ -64,14 +68,18 @@ class BaseDocument(BaseModel):
 
 class EntryCondition(BaseModel):
     """Strategy entry condition"""
+
     indicator: str = Field(..., description="Indicator name (e.g., RSI, SMA)")
     period: int = Field(..., ge=1, le=500, description="Indicator period")
-    condition: str = Field(..., description="Condition (e.g., above, below, crosses_above)")
+    condition: str = Field(
+        ..., description="Condition (e.g., above, below, crosses_above)"
+    )
     value: float = Field(..., description="Threshold value")
 
 
 class ExitCondition(BaseModel):
     """Strategy exit condition"""
+
     indicator: Optional[str] = Field(default=None)
     period: Optional[int] = Field(default=None, ge=1, le=500)
     condition: str = Field(..., description="Exit condition type")
@@ -80,6 +88,7 @@ class ExitCondition(BaseModel):
 
 class StopLossConfig(BaseModel):
     """Stop loss configuration"""
+
     type: str = Field(..., description="fixed, atr_based, percentage")
     value: float = Field(..., ge=0.0, description="Stop loss value")
     trailing: bool = Field(default=False)
@@ -88,6 +97,7 @@ class StopLossConfig(BaseModel):
 
 class TargetConfig(BaseModel):
     """Profit target configuration"""
+
     type: str = Field(..., description="fixed, atr_based, rrr_based")
     value: float = Field(..., ge=0.0)
     rrr: Optional[float] = Field(default=None, description="Risk-reward ratio")
@@ -95,6 +105,7 @@ class TargetConfig(BaseModel):
 
 class PositionSizing(BaseModel):
     """Position sizing configuration"""
+
     type: str = Field(..., description="fixed_quantity, capital_percentage, risk_based")
     value: float = Field(..., ge=0.0)
     max_position_size: Optional[float] = Field(default=None)
@@ -102,10 +113,13 @@ class PositionSizing(BaseModel):
 
 class StrategyDocument(BaseDocument):
     """Trading strategy document for RAG storage"""
+
     doc_type: DocumentType = DocumentType.STRATEGY
     name: str = Field(..., description="Strategy name")
     description: str = Field(..., description="Strategy description")
-    instrument: str = Field(..., description="Trading instrument (e.g., NIFTY50, RELIANCE)")
+    instrument: str = Field(
+        ..., description="Trading instrument (e.g., NIFTY50, RELIANCE)"
+    )
     segment: TradingSegment = Field(default=TradingSegment.EQUITY)
     timeframe: TimeFrame = Field(default=TimeFrame.INTRADAY_15M)
     entry_conditions: List[EntryCondition] = Field(default_factory=list)
@@ -127,8 +141,7 @@ class StrategyDocument(BaseDocument):
             for e in self.entry_conditions
         ]
         exit_texts = [
-            f"{e.indicator or ''} {e.condition} {e.value}"
-            for e in self.exit_conditions
+            f"{e.indicator or ''} {e.condition} {e.value}" for e in self.exit_conditions
         ]
         parts = [
             f"Strategy: {self.name}",
@@ -151,6 +164,7 @@ class StrategyDocument(BaseDocument):
 
 class BacktestMetrics(BaseModel):
     """Backtest performance metrics"""
+
     total_trades: int = Field(ge=0)
     winning_trades: int = Field(ge=0)
     losing_trades: int = Field(ge=0)
@@ -173,6 +187,7 @@ class BacktestMetrics(BaseModel):
 
 class BacktestDocument(BaseDocument):
     """Backtest result document for RAG storage"""
+
     doc_type: DocumentType = DocumentType.BACKTEST_RESULT
     strategy_name: str = Field(..., description="Strategy that was backtested")
     strategy_id: str = Field(..., description="Reference to strategy document")
@@ -205,6 +220,7 @@ class BacktestDocument(BaseDocument):
 
 class MarketRegimeDocument(BaseDocument):
     """Market regime document for RAG storage"""
+
     doc_type: DocumentType = DocumentType.MARKET_REGIME
     symbol: str = Field(...)
     regime: str = Field(..., description="Detected market regime")
@@ -229,6 +245,7 @@ class MarketRegimeDocument(BaseDocument):
 
 class NewsDocument(BaseDocument):
     """News event document for RAG storage"""
+
     doc_type: DocumentType = DocumentType.NEWS_EVENT
     title: str = Field(...)
     summary: str = Field(default="")
@@ -253,6 +270,7 @@ class NewsDocument(BaseDocument):
 
 class TradeDocument(BaseDocument):
     """Executed trade document for RAG storage"""
+
     doc_type: DocumentType = DocumentType.TRADE_HISTORY
     trade_id: str = Field(...)
     symbol: str = Field(...)
@@ -277,12 +295,15 @@ class TradeDocument(BaseDocument):
             f"Strategy: {self.strategy_name}\n"
             f"Entry: ₹{self.entry_price:.2f} at {self.entry_time}\n"
             f"Status: {self.status}\n"
-            f"P&L: ₹{self.pnl:,.2f}" if self.pnl else ""
+            f"P&L: ₹{self.pnl:,.2f}"
+            if self.pnl
+            else ""
         )
 
 
 class IndicatorDocument(BaseDocument):
     """Technical indicator reference document"""
+
     doc_type: DocumentType = DocumentType.INDICATOR_CONTEXT
     name: str = Field(...)
     full_name: str = Field(default="")
@@ -307,9 +328,12 @@ class IndicatorDocument(BaseDocument):
 
 class RetrievalQuery(BaseModel):
     """Structured retrieval query"""
+
     original_query: str = Field(...)
     expanded_query: Optional[str] = Field(default=None)
-    sources: List[str] = Field(default_factory=lambda: ["strategies", "market_regime", "news_events"])
+    sources: List[str] = Field(
+        default_factory=lambda: ["strategies", "market_regime", "news_events"]
+    )
     top_k: int = Field(default=10, ge=1, le=100)
     symbol: Optional[str] = Field(default=None)
     segment: Optional[str] = Field(default=None)
@@ -320,6 +344,7 @@ class RetrievalQuery(BaseModel):
 
 class RAGContext(BaseModel):
     """Complete RAG context for a query"""
+
     query: str = Field(...)
     similar_strategies: List[Dict[str, Any]] = Field(default_factory=list)
     market_context: List[Dict[str, Any]] = Field(default_factory=list)
@@ -335,6 +360,7 @@ class RAGContext(BaseModel):
 
 class RAGStats(BaseModel):
     """RAG system statistics"""
+
     vector_store_dir: str = Field(...)
     embedding_model: str = Field(...)
     reranker_model: str = Field(...)

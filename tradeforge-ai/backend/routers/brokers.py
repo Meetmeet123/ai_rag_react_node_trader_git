@@ -20,7 +20,7 @@ from core.broker.base import BaseBroker
 from core.broker.factory import create_broker_from_config
 from core.broker.paper_broker import PaperBroker
 from core.broker.upstox import UpstoxBroker
-from core.execution_engine import ExecutionEngine, ExecutionMode
+from core.execution_engine import ExecutionEngine
 from core.sanitization import sanitize_string
 from core.security import decrypt_value, encrypt_value, mask_value
 from database.models import BrokerConfig, BrokerName
@@ -123,17 +123,19 @@ def _config_to_response(config: BrokerConfig) -> BrokerConfigResponse:
         is_active=config.is_active,
         is_paper=config.is_paper,
         is_connected=config.is_connected,
-        last_connected_at=config.last_connected_at.isoformat() if config.last_connected_at else None,
+        last_connected_at=(
+            config.last_connected_at.isoformat() if config.last_connected_at else None
+        ),
     )
 
 
 async def _get_active_config(user: Optional[UserDocument]) -> Optional[BrokerConfig]:
     """Return the active broker config for the user, if any."""
-    query = BrokerConfig.find(BrokerConfig.is_active == True)
+    query = BrokerConfig.find({"is_active": True})
     if user is not None:
         query = query.find(BrokerConfig.user_id == user.id)
     else:
-        query = query.find(BrokerConfig.user_id == None)
+        query = query.find({"user_id": None})
     return await query.first_or_none()
 
 
@@ -175,7 +177,9 @@ async def list_brokers(
     )
 
 
-@router.get("/config", response_model=BrokerConfigResponse, summary="Get active broker config")
+@router.get(
+    "/config", response_model=BrokerConfigResponse, summary="Get active broker config"
+)
 async def get_broker_config(
     current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> BrokerConfigResponse:
@@ -218,13 +222,15 @@ async def save_broker_config(
     if payload.is_active:
         # Deactivate any existing active config for this user
         existing_query = BrokerConfig.find(
-            BrokerConfig.is_active == True,
+            {"is_active": True},
             BrokerConfig.broker != payload.broker,
         )
         if current_user is not None:
-            existing_query = existing_query.find(BrokerConfig.user_id == current_user.id)
+            existing_query = existing_query.find(
+                BrokerConfig.user_id == current_user.id
+            )
         else:
-            existing_query = existing_query.find(BrokerConfig.user_id == None)
+            existing_query = existing_query.find({"user_id": None})
         existing = await existing_query.to_list()
         for cfg in existing:
             cfg.is_active = False
@@ -236,7 +242,7 @@ async def save_broker_config(
     if current_user is not None:
         existing_query = existing_query.find(BrokerConfig.user_id == current_user.id)
     else:
-        existing_query = existing_query.find(BrokerConfig.user_id == None)
+        existing_query = existing_query.find({"user_id": None})
     existing_config = await existing_query.first_or_none()
 
     if existing_config is not None:
@@ -289,7 +295,9 @@ async def delete_broker_config(
         )
 
     await config.delete()
-    logger.info("Broker config deleted | id={} broker={}", config_id, config.broker.value)
+    logger.info(
+        "Broker config deleted | id={} broker={}", config_id, config.broker.value
+    )
     return {"success": True, "message": "Broker config deleted"}
 
 
@@ -303,11 +311,11 @@ async def connect_broker(
     current_user: Optional[UserDocument] = Depends(get_current_user_optional),
 ) -> BrokerStatusResponse:
     """Load the active config for the broker and connect."""
-    query = BrokerConfig.find(BrokerConfig.broker == broker, BrokerConfig.is_active == True)
+    query = BrokerConfig.find(BrokerConfig.broker == broker, {"is_active": True})
     if current_user is not None:
         query = query.find(BrokerConfig.user_id == current_user.id)
     else:
-        query = query.find(BrokerConfig.user_id == None)
+        query = query.find({"user_id": None})
     config = await query.first_or_none()
 
     if config is None:
@@ -341,7 +349,9 @@ async def connect_broker(
         is_connected=connected,
         is_paper=config.is_paper,
         is_active=config.is_active,
-        last_connected_at=config.last_connected_at.isoformat() if config.last_connected_at else None,
+        last_connected_at=(
+            config.last_connected_at.isoformat() if config.last_connected_at else None
+        ),
     )
 
 
@@ -377,7 +387,11 @@ async def disconnect_broker(
         is_connected=False,
         is_paper=True,
         is_active=config.is_active if config else False,
-        last_connected_at=config.last_connected_at.isoformat() if config and config.last_connected_at else None,
+        last_connected_at=(
+            config.last_connected_at.isoformat()
+            if config and config.last_connected_at
+            else None
+        ),
     )
 
 
@@ -400,13 +414,17 @@ async def broker_status(
             last_connected_at=None,
         )
 
-    is_connected = _broker_instance.is_connected if _broker_instance else config.is_connected
+    is_connected = (
+        _broker_instance.is_connected if _broker_instance else config.is_connected
+    )
     return BrokerStatusResponse(
         broker=config.broker.value,
         is_connected=is_connected,
         is_paper=config.is_paper,
         is_active=config.is_active,
-        last_connected_at=config.last_connected_at.isoformat() if config.last_connected_at else None,
+        last_connected_at=(
+            config.last_connected_at.isoformat() if config.last_connected_at else None
+        ),
     )
 
 
@@ -423,7 +441,7 @@ async def upstox_login_url(
     if current_user is not None:
         query = query.find(BrokerConfig.user_id == current_user.id)
     else:
-        query = query.find(BrokerConfig.user_id == None)
+        query = query.find({"user_id": None})
     config = await query.first_or_none()
 
     api_key = config.api_key if config and config.api_key else settings.UPSTOX_API_KEY
@@ -452,11 +470,13 @@ async def upstox_exchange_token(
     if current_user is not None:
         query = query.find(BrokerConfig.user_id == current_user.id)
     else:
-        query = query.find(BrokerConfig.user_id == None)
+        query = query.find({"user_id": None})
     config = await query.first_or_none()
 
     api_key = config.api_key if config and config.api_key else settings.UPSTOX_API_KEY
-    api_secret = decrypt_value(config.api_secret) if config and config.api_secret else None
+    api_secret = (
+        decrypt_value(config.api_secret) if config and config.api_secret else None
+    )
     redirect_uri = _default_upstox_redirect_uri(config)
 
     if not api_key or not api_secret:
@@ -479,7 +499,9 @@ async def upstox_exchange_token(
             detail=f"Token exchange failed: {exc}",
         )
 
-    access_token = token_response.get("access_token") if isinstance(token_response, dict) else None
+    access_token = (
+        token_response.get("access_token") if isinstance(token_response, dict) else None
+    )
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

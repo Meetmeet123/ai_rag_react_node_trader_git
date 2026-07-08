@@ -1,4 +1,7 @@
 import { useState, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { requestLiveApproval, closeAllPositions } from '@/lib/api';
+import { toast } from 'sonner';
 import {
   ComposedChart,
   Bar,
@@ -85,22 +88,59 @@ function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }
 }
 
 export default function LiveTrading() {
+  const { user } = useAuth();
   const [selectedStrategy, setSelectedStrategy] = useState(LIVE_STRATEGIES[0]);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+
+  const handleRequestApproval = useCallback(async () => {
+    setRequesting(true);
+    try {
+      const res = await requestLiveApproval();
+      toast.success(res.message);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit approval request');
+    } finally {
+      setRequesting(false);
+    }
+  }, []);
+
+  const isApproved = user?.is_approved_for_live ?? false;
 
   const chartData = generateOHLCData(60, 22450);
   const priceRange = [Math.min(...chartData.map((d) => d.low)) * 0.999, Math.max(...chartData.map((d) => d.high)) * 1.001];
   const volRange = [0, Math.max(...chartData.map((d) => d.volume)) * 3];
 
-  const handleKillSwitch = useCallback(() => {
+  const handleKillSwitch = useCallback(async () => {
     setShowKillConfirm(false);
-    // In a real app, this would trigger the kill switch API
+    try {
+      const result = await closeAllPositions();
+      toast.success(result.message || 'Kill switch activated');
+    } catch (err: any) {
+      toast.error(err?.detail || err?.message || 'Failed to activate kill switch');
+    }
   }, []);
 
   const isProfit = PNL_SUMMARY.total >= 0;
 
   return (
     <div className="flex flex-col h-full">
+      {!isApproved && (
+        <div className="bg-amber-900/30 border-b border-amber-700/40 px-4 py-2 flex items-center justify-between">
+          <span className="text-sm text-amber-200">
+            Live trading requires admin approval. You can view the dashboard, but real-broker orders will be blocked.
+          </span>
+          <button
+            data-testid="request-approval-btn"
+            onClick={handleRequestApproval}
+            disabled={requesting}
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+          >
+            {requesting ? 'Submitting...' : 'Request Approval'}
+          </button>
+        </div>
+      )}
+
       {/* Section 1: Live Status Bar */}
       <LiveStatusHeader onKillSwitch={() => setShowKillConfirm(true)} />
 

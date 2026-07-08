@@ -13,7 +13,7 @@ the original query is preserved for the cross-encoder reranker.
 """
 
 import re
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Set
 
 from loguru import logger
 
@@ -123,9 +123,19 @@ class QueryExpander:
             "trend",
         ],
         "pivot": ["pivot points", "support", "resistance", "levels"],
-        "fibonacci": ["fibonacci retracement", "fibonacci extension", "golden ratio", "levels"],
+        "fibonacci": [
+            "fibonacci retracement",
+            "fibonacci extension",
+            "golden ratio",
+            "levels",
+        ],
         "doji": ["doji candlestick", "reversal", "indecision"],
-        "engulfing": ["engulfing pattern", "bullish engulfing", "bearish engulfing", "reversal"],
+        "engulfing": [
+            "engulfing pattern",
+            "bullish engulfing",
+            "bearish engulfing",
+            "reversal",
+        ],
         "hammer": ["hammer candlestick", "inverted hammer", "bottom reversal"],
     }
 
@@ -315,7 +325,9 @@ class QueryExpander:
             return translated
 
         expanded = f"{translated} {' '.join(filtered_tokens)}"
-        logger.debug(f"Expanded query ({len(filtered_tokens)} terms added): {expanded[:120]}...")
+        logger.debug(
+            f"Expanded query ({len(filtered_tokens)} terms added): {expanded[:120]}..."
+        )
         return expanded
 
     def extract_entities(self, query: str) -> Dict[str, List[str]]:
@@ -327,7 +339,6 @@ class QueryExpander:
             Keys: ``indicators``, ``symbols``, ``actions``, ``timeframes``.
         """
         lowered = query.lower()
-        words = set(re.findall(r"[a-z][a-z0-9_%]*", lowered))
 
         # Indicators – match against synonym keys
         indicators: Set[str] = set()
@@ -363,7 +374,14 @@ class QueryExpander:
 
         # Timeframes
         timeframes: Set[str] = set()
-        for tf_word in ("intraday", "swing", "positional", "scalping", "long term", "short term"):
+        for tf_word in (
+            "intraday",
+            "swing",
+            "positional",
+            "scalping",
+            "long term",
+            "short term",
+        ):
             if tf_word in lowered:
                 timeframes.add(tf_word.replace(" ", "_"))
 
@@ -414,7 +432,9 @@ class QueryExpander:
         'overbought above 70'.
         """
         lowered = query.lower()
-        is_buy = any(w in lowered for w in ("buy", "long", "purchase", "accumulate", "kharido"))
+        is_buy = any(
+            w in lowered for w in ("buy", "long", "purchase", "accumulate", "kharido")
+        )
         is_sell = any(w in lowered for w in ("sell", "short", "exit", "becho"))
 
         extra: List[str] = []
@@ -430,9 +450,13 @@ class QueryExpander:
 
             elif ind_lc in ("macd",):
                 if is_buy:
-                    extra.extend(["bullish crossover", "positive histogram", "above signal"])
+                    extra.extend(
+                        ["bullish crossover", "positive histogram", "above signal"]
+                    )
                 elif is_sell:
-                    extra.extend(["bearish crossover", "negative histogram", "below signal"])
+                    extra.extend(
+                        ["bearish crossover", "negative histogram", "below signal"]
+                    )
                 else:
                     extra.extend(["crossover", "histogram", "signal line"])
 
@@ -462,9 +486,13 @@ class QueryExpander:
 
             elif ind_lc == "vwap":
                 if is_buy:
-                    extra.extend(["price above vwap", "institutional buying", "bullish"])
+                    extra.extend(
+                        ["price above vwap", "institutional buying", "bullish"]
+                    )
                 elif is_sell:
-                    extra.extend(["price below vwap", "institutional selling", "bearish"])
+                    extra.extend(
+                        ["price below vwap", "institutional selling", "bearish"]
+                    )
                 else:
                     extra.extend(["intraday anchor", "volume weighted"])
 

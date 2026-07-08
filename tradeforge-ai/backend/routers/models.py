@@ -50,9 +50,20 @@ class ModelVersionResponse(BaseModel):
     backtest_pnl: float
     status: str
     is_active: bool
+    is_shadow: bool
     triggered_by: str
+    artifact_uri: Optional[str]
     created_at: Optional[str]
     completed_at: Optional[str]
+
+
+class ShadowResponse(BaseModel):
+    """Response for setting or promoting a shadow model."""
+
+    success: bool
+    message: str
+    shadow_version: Optional[int] = None
+    active_version: Optional[int] = None
 
 
 class ModelListResponse(BaseModel):
@@ -61,6 +72,7 @@ class ModelListResponse(BaseModel):
     versions: List[ModelVersionResponse]
     total: int
     active_version_id: Optional[int]
+    shadow_version_id: Optional[int]
 
 
 class ActivateResponse(BaseModel):
@@ -136,7 +148,9 @@ def _version_to_response(v: ModelVersionInfo) -> ModelVersionResponse:
         backtest_pnl=v.backtest_pnl,
         status=v.status,
         is_active=v.is_active,
+        is_shadow=v.is_shadow,
         triggered_by=v.triggered_by,
+        artifact_uri=v.artifact_uri,
         created_at=v.created_at.isoformat() if v.created_at else None,
         completed_at=v.completed_at.isoformat() if v.completed_at else None,
     )
@@ -165,6 +179,7 @@ async def list_models(
             versions=[_version_to_response(v) for v in versions],
             total=len(versions),
             active_version_id=registry.active_version_id,
+            shadow_version_id=registry.shadow_version_id,
         )
 
     except HTTPException:
@@ -338,6 +353,107 @@ async def compare_models(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to compare versions: {exc}",
+        )
+
+
+@router.get(
+    "/shadow",
+    response_model=Optional[ModelVersionResponse],
+    summary="Get shadow model",
+    description="Get the current shadow/challenger model version.",
+)
+async def get_shadow_model() -> Optional[ModelVersionResponse]:
+    """Get currently shadow model version."""
+    try:
+        registry = _get_registry()
+        shadow = registry.get_shadow_version()
+        if shadow is None:
+            return None
+        return _version_to_response(shadow)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to get shadow model: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get shadow model: {exc}",
+        )
+
+
+@router.post(
+    "/{version_id}/shadow",
+    response_model=ShadowResponse,
+    summary="Set shadow model",
+    description="Mark a model version as the shadow/challenger model.",
+)
+async def set_shadow_model(version_id: int) -> ShadowResponse:
+    """Set a model version as shadow."""
+    try:
+        registry = _get_registry()
+        version = registry.get_version(version_id)
+        if version is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Model version {version_id} not found",
+            )
+
+        result = registry.set_shadow_version(version_id)
+        if result:
+            return ShadowResponse(
+                success=True,
+                message=f"Version {version_id} set as shadow model",
+                shadow_version=version_id,
+            )
+        return ShadowResponse(
+            success=False,
+            message=f"Failed to set version {version_id} as shadow",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to set shadow version {}: {}", version_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set shadow model: {exc}",
+        )
+
+
+@router.post(
+    "/shadow/promote",
+    response_model=ActivateResponse,
+    summary="Promote shadow to active",
+    description="Promote the current shadow/challenger model to active.",
+)
+async def promote_shadow_model() -> ActivateResponse:
+    """Promote shadow model to active."""
+    try:
+        registry = _get_registry()
+        shadow = registry.get_shadow_version()
+        if shadow is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No shadow model is set",
+            )
+
+        result = registry.promote_shadow_to_active()
+        active = registry.get_active_version()
+        if result:
+            return ActivateResponse(
+                success=True,
+                message=f"Shadow version {shadow.version_id} promoted to active",
+                activated_version=active.version_id if active else None,
+            )
+        return ActivateResponse(
+            success=False,
+            message="Failed to promote shadow model",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to promote shadow model: {}", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to promote shadow model: {exc}",
         )
 
 

@@ -10,8 +10,9 @@ Authentication & User Management API Routes
 
 from __future__ import annotations
 
+import bcrypt
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -24,7 +25,6 @@ from database.models import Account, User, UserRole
 
 router = APIRouter()
 
-import bcrypt
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 ALGORITHM = "HS256"
@@ -39,7 +39,9 @@ class UserCreate(BaseModel):
     """Request body for user registration."""
 
     email: str = Field(..., description="User email address")
-    username: str = Field(..., min_length=3, max_length=50, description="Unique username")
+    username: str = Field(
+        ..., min_length=3, max_length=50, description="Unique username"
+    )
     password: str = Field(..., min_length=6, description="User password")
     full_name: Optional[str] = Field(default=None, description="Full name")
 
@@ -54,6 +56,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     is_approved_for_live: bool
+    live_approved_at: Optional[str]
     created_at: Optional[str]
 
 
@@ -134,6 +137,9 @@ def _user_to_response(user: User) -> Dict[str, Any]:
         "role": user.role.value,
         "is_active": user.is_active,
         "is_approved_for_live": user.is_approved_for_live,
+        "live_approved_at": (
+            user.live_approved_at.isoformat() if user.live_approved_at else None
+        ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -148,7 +154,9 @@ async def get_user_by_username(username: str) -> Optional[User]:
     return await User.find_one(User.username == username)
 
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[User]:
+async def get_current_user(
+    token: Optional[str] = Depends(oauth2_scheme),
+) -> Optional[User]:
     """Dependency that returns the current authenticated user or None."""
     if not token:
         return None
@@ -170,7 +178,9 @@ async def get_current_user_optional(
     return await get_current_user(token)
 
 
-async def get_current_active_user(user: Optional[User] = Depends(get_current_user)) -> User:
+async def get_current_active_user(
+    user: Optional[User] = Depends(get_current_user),
+) -> User:
     """Dependency that requires a valid, active user."""
     if user is None:
         raise HTTPException(
@@ -341,7 +351,9 @@ async def refresh_token(refresh_token: str) -> TokenResponse:
     summary="Logout",
     description="Logout the current user. Tokens should be deleted client-side.",
 )
-async def logout(current_user: User = Depends(get_current_active_user)) -> Dict[str, Any]:
+async def logout(
+    current_user: User = Depends(get_current_active_user),
+) -> Dict[str, Any]:
     """Logout endpoint."""
     logger.info("User logged out id={}", current_user.id)
     return {"success": True, "message": "Logged out successfully"}
@@ -356,3 +368,101 @@ async def logout(current_user: User = Depends(get_current_active_user)) -> Dict[
 async def me(current_user: User = Depends(get_current_active_user)) -> UserResponse:
     """Return current authenticated user profile."""
     return UserResponse(**_user_to_response(current_user))
+
+
+@router.post(
+    "/request-live-approval",
+    summary="Request live trading approval",
+    description="Current user requests admin approval to trade with real brokers.",
+)
+async def request_live_approval(
+    current_user: User = Depends(get_current_active_user),
+) -> Dict[str, Any]:
+    """Flag the current user as requesting live-trading approval."""
+    account = await Account.find_one(Account.user_id == current_user.id)
+    if account is None:
+        account = Account(user_id=current_user.id)
+    account.live_approval_requested = True
+    await account.save()
+    logger.info("User {} requested live trading approval", current_user.id)
+    return {
+        "success": True,
+        "message": "Live trading approval request submitted. An admin will review it.",
+    }
+
+
+@router.get(
+    "/pending-live-approvals",
+    summary="List pending live approvals",
+    description="Admin-only: list users who have requested live trading approval.",
+)
+async def pending_live_approvals(
+    admin: User = Depends(get_current_admin),
+) -> List[Dict[str, Any]]:
+    """Return users/accounts pending live-trading approval."""
+    pending_accounts = await Account.find({"live_approval_requested": True}).to_list()
+    if not pending_accounts:
+        return []
+
+    user_ids = [acc.user_id for acc in pending_accounts]
+    users = await User.find(User.id.in_(user_ids)).to_list()
+    user_map = {u.id: u for u in users}
+
+    result = []
+    for acc in pending_accounts:
+        user = user_map.get(acc.user_id)
+        if user is None:
+            continue
+        result.append(
+            {
+                "user": _user_to_response(user),
+                "requested_at": acc.updated_at.isoformat() if acc.updated_at else None,
+            }
+        )
+    return result
+
+
+@router.post(
+    "/users/{user_id}/approve-live",
+    summary="Approve user for live trading",
+    description="Admin-only: approve a user to connect real brokers and trade live.",
+)
+async def approve_user_for_live(
+    user_id: str,
+    admin: User = Depends(get_current_admin),
+) -> Dict[str, Any]:
+    """Approve a user for live trading."""
+    from beanie import PydanticObjectId
+    from bson.errors import InvalidId
+
+    try:
+        uid = PydanticObjectId(user_id)
+    except InvalidId:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID",
+        )
+
+    user = await User.get(uid)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    user.is_approved_for_live = True
+    user.live_approved_at = datetime.utcnow()
+    user.live_approved_by = admin.id
+    await user.save()
+
+    account = await Account.find_one(Account.user_id == uid)
+    if account is not None:
+        account.live_approval_requested = False
+        await account.save()
+
+    logger.info("Admin {} approved user {} for live trading", admin.id, uid)
+    return {
+        "success": True,
+        "message": f"User {user.username} approved for live trading",
+        "user": _user_to_response(user),
+    }

@@ -207,7 +207,10 @@ class UpstoxBroker(BaseBroker):
         try:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
-                None, lambda: requests.get(url, headers=_headers(self.access_token), timeout=30)
+                None,
+                lambda: requests.get(
+                    url, headers=_headers(self.access_token), timeout=30
+                ),
             )
             if response.status_code == 200:
                 self._connected = True
@@ -255,7 +258,11 @@ class UpstoxBroker(BaseBroker):
             logger.warning("Upstox request without connection: {} {}", method, endpoint)
             return None
 
-        url = f"{BASE_URL}{endpoint}" if endpoint.startswith("/") else f"{BASE_URL}/{endpoint}"
+        url = (
+            f"{BASE_URL}{endpoint}"
+            if endpoint.startswith("/")
+            else f"{BASE_URL}/{endpoint}"
+        )
         headers = _headers(self.access_token)
 
         # For form-encoded calls
@@ -301,7 +308,10 @@ class UpstoxBroker(BaseBroker):
         }
         if params.price > 0 and params.order_type in (OrderType.LIMIT, OrderType.SL):
             payload["price"] = params.price
-        if params.trigger_price > 0 and params.order_type in (OrderType.SL, OrderType.SL_M):
+        if params.trigger_price > 0 and params.order_type in (
+            OrderType.SL,
+            OrderType.SL_M,
+        ):
             payload["trigger_price"] = params.trigger_price
         if params.tag:
             payload["tag"] = params.tag[:8]
@@ -357,7 +367,9 @@ class UpstoxBroker(BaseBroker):
                 timestamp=_now(),
             )
 
-        new_id = str(data.get("order_id", order_id)) if isinstance(data, dict) else order_id
+        new_id = (
+            str(data.get("order_id", order_id)) if isinstance(data, dict) else order_id
+        )
         return OrderResult(
             order_id=new_id,
             status=OrderStatus.MODIFIED,
@@ -368,7 +380,9 @@ class UpstoxBroker(BaseBroker):
 
     async def cancel_order(self, order_id: str) -> OrderResult:
         """Cancel an existing Upstox order."""
-        data = await self._request("DELETE", "/order/cancel", json={"order_id": order_id})
+        data = await self._request(
+            "DELETE", "/order/cancel", json={"order_id": order_id}
+        )
         if data is None:
             return OrderResult(
                 order_id=order_id,
@@ -387,7 +401,9 @@ class UpstoxBroker(BaseBroker):
 
     async def get_order_status(self, order_id: str) -> OrderResult:
         """Fetch status for a single order."""
-        data = await self._request("GET", "/order/details", params={"order_id": order_id})
+        data = await self._request(
+            "GET", "/order/details", params={"order_id": order_id}
+        )
         if not isinstance(data, dict):
             return OrderResult(
                 order_id=order_id,
@@ -418,17 +434,19 @@ class UpstoxBroker(BaseBroker):
         for item in data:
             if not isinstance(item, dict):
                 continue
-            results.append(OrderResult(
-                order_id=str(item.get("order_id", "")),
-                status=_map_status(item.get("status")),
-                symbol=str(item.get("symbol", "")).split(":")[-1],
-                quantity=_safe_int(item.get("quantity")),
-                filled_qty=_safe_int(item.get("filled_quantity")),
-                avg_price=_safe_float(item.get("average_price")),
-                message=str(item.get("status_message", "")),
-                timestamp=_now(),
-                broker_raw=item,
-            ))
+            results.append(
+                OrderResult(
+                    order_id=str(item.get("order_id", "")),
+                    status=_map_status(item.get("status")),
+                    symbol=str(item.get("symbol", "")).split(":")[-1],
+                    quantity=_safe_int(item.get("quantity")),
+                    filled_qty=_safe_int(item.get("filled_quantity")),
+                    avg_price=_safe_float(item.get("average_price")),
+                    message=str(item.get("status_message", "")),
+                    timestamp=_now(),
+                    broker_raw=item,
+                )
+            )
         return results
 
     # ------------------------------------------------------------------
@@ -454,22 +472,28 @@ class UpstoxBroker(BaseBroker):
             }.get(product_str, ProductType.MIS)
 
             qty = _safe_int(item.get("quantity"))
-            positions.append(PositionData(
-                symbol=str(item.get("tradingsymbol", "")),
-                exchange=Exchange(exchange_str) if exchange_str in Exchange._value2member_map_ else Exchange.NSE,
-                product=product,
-                quantity=qty,
-                avg_price=_safe_float(item.get("average_price")),
-                last_price=_safe_float(item.get("last_price")),
-                pnl=_safe_float(item.get("pnl")),
-                day_pnl=_safe_float(item.get("day_pnl")),
-                overnight_quantity=_safe_int(item.get("overnight_quantity")),
-                buy_quantity=_safe_int(item.get("buy_quantity")),
-                sell_quantity=_safe_int(item.get("sell_quantity")),
-                buy_price=_safe_float(item.get("buy_price")),
-                sell_price=_safe_float(item.get("sell_price")),
-                broker_raw=item,
-            ))
+            positions.append(
+                PositionData(
+                    symbol=str(item.get("tradingsymbol", "")),
+                    exchange=(
+                        Exchange(exchange_str)
+                        if exchange_str in Exchange._value2member_map_
+                        else Exchange.NSE
+                    ),
+                    product=product,
+                    quantity=qty,
+                    avg_price=_safe_float(item.get("average_price")),
+                    last_price=_safe_float(item.get("last_price")),
+                    pnl=_safe_float(item.get("pnl")),
+                    day_pnl=_safe_float(item.get("day_pnl")),
+                    overnight_quantity=_safe_int(item.get("overnight_quantity")),
+                    buy_quantity=_safe_int(item.get("buy_quantity")),
+                    sell_quantity=_safe_int(item.get("sell_quantity")),
+                    buy_price=_safe_float(item.get("buy_price")),
+                    sell_price=_safe_float(item.get("sell_price")),
+                    broker_raw=item,
+                )
+            )
         return positions
 
     async def get_holdings(self) -> List[HoldingData]:
@@ -483,16 +507,22 @@ class UpstoxBroker(BaseBroker):
             if not isinstance(item, dict):
                 continue
             exchange_str = str(item.get("exchange", "NSE")).upper()
-            holdings.append(HoldingData(
-                symbol=str(item.get("tradingsymbol", "")),
-                exchange=Exchange(exchange_str) if exchange_str in Exchange._value2member_map_ else Exchange.NSE,
-                quantity=_safe_int(item.get("quantity")),
-                avg_price=_safe_float(item.get("average_price")),
-                last_price=_safe_float(item.get("last_price")),
-                pnl=_safe_float(item.get("pnl")),
-                day_change_pct=_safe_float(item.get("day_change_percentage")),
-                broker_raw=item,
-            ))
+            holdings.append(
+                HoldingData(
+                    symbol=str(item.get("tradingsymbol", "")),
+                    exchange=(
+                        Exchange(exchange_str)
+                        if exchange_str in Exchange._value2member_map_
+                        else Exchange.NSE
+                    ),
+                    quantity=_safe_int(item.get("quantity")),
+                    avg_price=_safe_float(item.get("average_price")),
+                    last_price=_safe_float(item.get("last_price")),
+                    pnl=_safe_float(item.get("pnl")),
+                    day_change_pct=_safe_float(item.get("day_change_percentage")),
+                    broker_raw=item,
+                )
+            )
         return holdings
 
     async def get_funds(self) -> FundsData:
@@ -502,7 +532,11 @@ class UpstoxBroker(BaseBroker):
             return FundsData()
 
         equity = data.get("equity", {}) if isinstance(data.get("equity"), dict) else {}
-        available = equity.get("available", {}) if isinstance(equity.get("available"), dict) else {}
+        available = (
+            equity.get("available", {})
+            if isinstance(equity.get("available"), dict)
+            else {}
+        )
         used = equity.get("used", {}) if isinstance(equity.get("used"), dict) else {}
 
         return FundsData(

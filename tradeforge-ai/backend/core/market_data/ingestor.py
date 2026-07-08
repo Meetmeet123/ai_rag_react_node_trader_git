@@ -29,12 +29,11 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import httpx
 import pandas as pd
 from loguru import logger
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -69,16 +68,56 @@ TIMEFRAME_SECONDS = {
 
 # Full Nifty 50 constituents (as of 2024)
 NIFTY50_CONSTITUENTS: List[str] = [
-    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY",
-    "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "BAJFINANCE",
-    "LICI", "KOTAKBANK", "LT", "HCLTECH", "AXISBANK",
-    "ASIANPAINT", "MARUTI", "SUNPHARMA", "TITAN", "ADANIENT",
-    "ULTRACEMCO", "BAJAJFINSV", "NESTLEIND", "WIPRO", "ADANIPORTS",
-    "POWERGRID", "JSWSTEEL", "M&M", "LTIM", "TATAMOTORS",
-    "COALINDIA", "TATASTEEL", "HINDALCO", "ONGC", "BPCL",
-    "GRASIM", "BRITANNIA", "VEDL", "CIPLA", "EICHERMOTORS",
-    "DIVISLAB", "DRREDDY", "HEROMOTOCO", "HINDPETRO", "INDUSINDBK",
-    "NTPC", "SHRIRAMFIN", "APOLLOHOSP", "BAJAJ-AUTO", "TATACONSUM",
+    "RELIANCE",
+    "TCS",
+    "HDFCBANK",
+    "ICICIBANK",
+    "INFY",
+    "HINDUNILVR",
+    "ITC",
+    "SBIN",
+    "BHARTIARTL",
+    "BAJFINANCE",
+    "LICI",
+    "KOTAKBANK",
+    "LT",
+    "HCLTECH",
+    "AXISBANK",
+    "ASIANPAINT",
+    "MARUTI",
+    "SUNPHARMA",
+    "TITAN",
+    "ADANIENT",
+    "ULTRACEMCO",
+    "BAJAJFINSV",
+    "NESTLEIND",
+    "WIPRO",
+    "ADANIPORTS",
+    "POWERGRID",
+    "JSWSTEEL",
+    "M&M",
+    "LTIM",
+    "TATAMOTORS",
+    "COALINDIA",
+    "TATASTEEL",
+    "HINDALCO",
+    "ONGC",
+    "BPCL",
+    "GRASIM",
+    "BRITANNIA",
+    "VEDL",
+    "CIPLA",
+    "EICHERMOTORS",
+    "DIVISLAB",
+    "DRREDDY",
+    "HEROMOTOCO",
+    "HINDPETRO",
+    "INDUSINDBK",
+    "NTPC",
+    "SHRIRAMFIN",
+    "APOLLOHOSP",
+    "BAJAJ-AUTO",
+    "TATACONSUM",
 ]
 
 
@@ -159,7 +198,9 @@ class MarketDataIngestor:
             cache_max = cached["timestamp"].max()
             # If cache fully covers request, return slice
             if cache_min <= from_date and cache_max >= to_date:
-                mask = (cached["timestamp"] >= from_date) & (cached["timestamp"] <= to_date)
+                mask = (cached["timestamp"] >= from_date) & (
+                    cached["timestamp"] <= to_date
+                )
                 logger.info(f"[{symbol}] Cache hit — returning {mask.sum()} rows")
                 return cached.loc[mask].copy().reset_index(drop=True)
 
@@ -176,15 +217,21 @@ class MarketDataIngestor:
         # 3. Fallback to Yahoo
         if df is None or df.empty:
             try:
-                df = await self._fetch_yahoo_historical(symbol, from_date, to_date, timeframe)
+                df = await self._fetch_yahoo_historical(
+                    symbol, from_date, to_date, timeframe
+                )
                 if df is not None and not df.empty:
                     logger.info(f"[{symbol}] Yahoo fetch succeeded — {len(df)} rows")
             except Exception as exc:
                 logger.warning(f"[{symbol}] Yahoo fetch failed: {exc}")
 
         if df is None or df.empty:
-            logger.error(f"[{symbol}] All data sources exhausted — returning empty DataFrame")
-            return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+            logger.error(
+                f"[{symbol}] All data sources exhausted — returning empty DataFrame"
+            )
+            return pd.DataFrame(
+                columns=["timestamp", "open", "high", "low", "close", "volume"]
+            )
 
         # Cache & return
         self.save_to_parquet(df, symbol, timeframe)
@@ -207,13 +254,19 @@ class MarketDataIngestor:
             DataFrame with OHLCV columns.
         """
         period_map = {
-            "1mo": 30, "3mo": 90, "6mo": 180,
-            "1y": 365, "2y": 730, "5y": 1825,
+            "1mo": 30,
+            "3mo": 90,
+            "6mo": 180,
+            "1y": 365,
+            "2y": 730,
+            "5y": 1825,
         }
         days = period_map.get(period, 365)
         to_date = datetime.now()
         from_date = to_date - timedelta(days=days)
-        return await self._fetch_nse_historical(symbol, from_date, to_date, timeframe="1d")
+        return await self._fetch_nse_historical(
+            symbol, from_date, to_date, timeframe="1d"
+        )
 
     async def fetch_yahoo_data(
         self,
@@ -230,10 +283,19 @@ class MarketDataIngestor:
             DataFrame with OHLCV columns.
         """
         to_date = datetime.now()
-        period_map_days = {"1mo": 30, "3mo": 90, "6mo": 180, "1y": 365, "2y": 730, "5y": 1825}
+        period_map_days = {
+            "1mo": 30,
+            "3mo": 90,
+            "6mo": 180,
+            "1y": 365,
+            "2y": 730,
+            "5y": 1825,
+        }
         days = period_map_days.get(period, 365)
         from_date = to_date - timedelta(days=days)
-        return await self._fetch_yahoo_historical(symbol, from_date, to_date, timeframe="1d")
+        return await self._fetch_yahoo_historical(
+            symbol, from_date, to_date, timeframe="1d"
+        )
 
     def save_to_parquet(
         self,
@@ -413,18 +475,32 @@ class MarketDataIngestor:
                 continue
             try:
                 # NSE field names vary; handle both formats
-                ts_raw = row.get("CH_TIMESTAMP") or row.get("TIMESTAMP") or row.get("date")
+                ts_raw = (
+                    row.get("CH_TIMESTAMP") or row.get("TIMESTAMP") or row.get("date")
+                )
                 if ts_raw is None:
                     continue
                 ts = pd.to_datetime(ts_raw)
-                records.append({
-                    "timestamp": ts,
-                    "open": float(row.get("CH_OPENING_PRICE") or row.get("OPEN", 0)),
-                    "high": float(row.get("CH_TRADE_HIGH_PRICE") or row.get("HIGH", 0)),
-                    "low": float(row.get("CH_TRADE_LOW_PRICE") or row.get("LOW", 0)),
-                    "close": float(row.get("CH_CLOSING_PRICE") or row.get("CLOSE", 0)),
-                    "volume": int(row.get("CH_TOT_TRADED_QTY") or row.get("VOLUME", 0)),
-                })
+                records.append(
+                    {
+                        "timestamp": ts,
+                        "open": float(
+                            row.get("CH_OPENING_PRICE") or row.get("OPEN", 0)
+                        ),
+                        "high": float(
+                            row.get("CH_TRADE_HIGH_PRICE") or row.get("HIGH", 0)
+                        ),
+                        "low": float(
+                            row.get("CH_TRADE_LOW_PRICE") or row.get("LOW", 0)
+                        ),
+                        "close": float(
+                            row.get("CH_CLOSING_PRICE") or row.get("CLOSE", 0)
+                        ),
+                        "volume": int(
+                            row.get("CH_TOT_TRADED_QTY") or row.get("VOLUME", 0)
+                        ),
+                    }
+                )
             except (ValueError, TypeError) as exc:
                 logger.debug(f"Skipping malformed NSE row: {exc}")
                 continue
@@ -452,9 +528,13 @@ class MarketDataIngestor:
         Uses the ``query1.finance.yahoo.com`` endpoint.
         """
         # Map internal timeframes to Yahoo intervals.
-        yahoo_interval = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "60m", "1d": "1d"}.get(
-            timeframe, "1d"
-        )
+        yahoo_interval = {
+            "1m": "1m",
+            "5m": "5m",
+            "15m": "15m",
+            "1h": "60m",
+            "1d": "1d",
+        }.get(timeframe, "1d")
         # Yahoo intraday data is limited; keep date range tight for 1m.
         if timeframe == "1m" and (to_date - from_date).days > 7:
             from_date = to_date - timedelta(days=7)
@@ -489,14 +569,16 @@ class MarketDataIngestor:
         if not timestamps:
             return None
 
-        df = pd.DataFrame({
-            "timestamp": [datetime.utcfromtimestamp(ts) for ts in timestamps],
-            "open": quote.get("open", []),
-            "high": quote.get("high", []),
-            "low": quote.get("low", []),
-            "close": quote.get("close", []),
-            "volume": quote.get("volume", []),
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": [datetime.utcfromtimestamp(ts) for ts in timestamps],
+                "open": quote.get("open", []),
+                "high": quote.get("high", []),
+                "low": quote.get("low", []),
+                "close": quote.get("close", []),
+                "volume": quote.get("volume", []),
+            }
+        )
         # Drop rows with NaN in critical columns
         df = df.dropna(subset=["open", "high", "low", "close"]).reset_index(drop=True)
         return df

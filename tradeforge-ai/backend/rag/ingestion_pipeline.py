@@ -16,8 +16,8 @@ async methods for event-driven ingestion from the trading engine.
 """
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Set
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -25,19 +25,12 @@ from loguru import logger
 
 from .document_processor import DocumentProcessor
 from .market_regime_detector import MarketRegimeDetector
-from .models import (
-    BacktestDocument,
-    MarketRegimeDocument,
-    NewsDocument,
-    StrategyDocument,
-    TradeDocument,
-)
 from .vector_store import Document, VectorStore
-
 
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class RAGIngestionPipeline:
     """Continuous ingestion pipeline for the TradeForge RAG vector store.
@@ -81,7 +74,7 @@ class RAGIngestionPipeline:
     """
 
     # Indian market hours (UTC+5:30)
-    MARKET_OPEN_HOUR = 9    # 9:15 AM IST
+    MARKET_OPEN_HOUR = 9  # 9:15 AM IST
     MARKET_OPEN_MINUTE = 15
     MARKET_CLOSE_HOUR = 15  # 3:30 PM IST
     MARKET_CLOSE_MINUTE = 30
@@ -237,7 +230,9 @@ class RAGIngestionPipeline:
             )
 
             self._ingestion_count["strategies"] += 1
-            logger.info(f"Ingested strategy: {strategy.get('name', 'unknown')} ({doc_id})")
+            logger.info(
+                f"Ingested strategy: {strategy.get('name', 'unknown')} ({doc_id})"
+            )
             return True
 
         except Exception as exc:
@@ -384,8 +379,12 @@ class RAGIngestionPipeline:
         """
         try:
             text = self.processor.format_trade_document(trade)
-            doc_id = trade.get("id") or trade.get("trade_id") or self.processor.compute_doc_id(
-                text, {"trade_id": trade.get("trade_id", "")}
+            doc_id = (
+                trade.get("id")
+                or trade.get("trade_id")
+                or self.processor.compute_doc_id(
+                    text, {"trade_id": trade.get("trade_id", "")}
+                )
             )
 
             doc = Document(
@@ -463,6 +462,7 @@ class RAGIngestionPipeline:
 
             # Detect regime
             import pandas as pd
+
             df_data = {"close": [price]}
             for k, v in indicators.items():
                 df_data[k] = [v]
@@ -487,7 +487,11 @@ class RAGIngestionPipeline:
                     "volume": regime_result["indicators"]["volume"],
                     "momentum": regime_result["indicators"]["momentum"],
                     "timestamp": datetime.utcnow().isoformat(),
-                    **{k: v for k, v in indicators.items() if isinstance(v, (int, float, str, bool))},
+                    **{
+                        k: v
+                        for k, v in indicators.items()
+                        if isinstance(v, (int, float, str, bool))
+                    },
                 },
             )
 
@@ -544,7 +548,11 @@ class RAGIngestionPipeline:
                         "doc_type": "indicator_context",
                         "name": ind.get("name", ""),
                         "category": ind.get("category", ""),
-                        **{k: v for k, v in ind.items() if k not in ("name", "category", "description")},
+                        **{
+                            k: v
+                            for k, v in ind.items()
+                            if k not in ("name", "category", "description")
+                        },
                     },
                 )
                 docs.append(doc)
@@ -595,7 +603,9 @@ class RAGIngestionPipeline:
                         "title": title,
                         "author": item.get("author", ""),
                         "symbol": item.get("symbol", ""),
-                        "published_at": item.get("published_at", datetime.utcnow().isoformat()),
+                        "published_at": item.get(
+                            "published_at", datetime.utcnow().isoformat()
+                        ),
                         "ingested_at": datetime.utcnow().isoformat(),
                     },
                 )
@@ -676,7 +686,9 @@ class RAGIngestionPipeline:
                 )
 
                 ts = regime.get("datetime", datetime.utcnow().isoformat())
-                doc_id = self.processor.compute_doc_id(text, {"symbol": symbol, "timestamp": ts})
+                doc_id = self.processor.compute_doc_id(
+                    text, {"symbol": symbol, "timestamp": ts}
+                )
 
                 doc = Document(
                     id=doc_id,
@@ -696,7 +708,9 @@ class RAGIngestionPipeline:
                     loop = asyncio.get_event_loop()
                     await loop.run_in_executor(
                         None,
-                        lambda d=docs: self.vector_store.upsert_documents("market_regime", d),
+                        lambda d=docs: self.vector_store.upsert_documents(
+                            "market_regime", d
+                        ),
                     )
                     count += len(docs)
                     docs = []
@@ -711,7 +725,9 @@ class RAGIngestionPipeline:
                 count += len(docs)
 
             self._ingestion_count["regime"] += count
-            logger.info(f"Bulk ingested {count} historical regime snapshots for {symbol}")
+            logger.info(
+                f"Bulk ingested {count} historical regime snapshots for {symbol}"
+            )
             return count
 
         except Exception as exc:
@@ -734,7 +750,6 @@ class RAGIngestionPipeline:
         now = datetime.utcnow()
         # Convert to IST (UTC+5:30)
         ist_hour = (now.hour + 5) % 24 + (now.minute + 30) // 60
-        ist_minute = (now.minute + 30) % 60
 
         # Skip outside market hours (9:15 - 15:30 IST)
         # Simplified: only run during what should be market hours
@@ -816,6 +831,12 @@ class RAGIngestionPipeline:
             "is_running": self._is_running,
             "tracked_symbols": list(self.tracked_symbols),
             "ingestion_counts": dict(self._ingestion_count),
-            "last_regime_update": self._last_regime_update.isoformat() if self._last_regime_update else None,
-            "last_news_update": self._last_news_update.isoformat() if self._last_news_update else None,
+            "last_regime_update": (
+                self._last_regime_update.isoformat()
+                if self._last_regime_update
+                else None
+            ),
+            "last_news_update": (
+                self._last_news_update.isoformat() if self._last_news_update else None
+            ),
         }

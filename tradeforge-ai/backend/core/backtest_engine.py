@@ -25,32 +25,35 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class OrderSide(Enum):
     """Direction of an order."""
+
     BUY = "buy"
     SELL = "sell"
 
 
 class PositionType(Enum):
     """Type of position."""
+
     LONG = "long"
     SHORT = "short"
 
 
 class ExitReason(Enum):
     """Reason why a trade was closed."""
+
     TARGET = "target"
     STOP_LOSS = "stop_loss"
     SIGNAL_REVERSAL = "signal_reversal"
@@ -61,6 +64,7 @@ class ExitReason(Enum):
 
 class PositionSizingType(str, Enum):
     """How position size is determined."""
+
     FIXED_QTY = "fixed_qty"
     PCT_CAPITAL = "pct_capital"
     RISK_BASED = "risk_based"
@@ -69,6 +73,7 @@ class PositionSizingType(str, Enum):
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+
 
 class BacktestConfig(BaseModel):
     """Backtest configuration validated via Pydantic.
@@ -117,6 +122,7 @@ class BacktestConfig(BaseModel):
 # ---------------------------------------------------------------------------
 # Trade record
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class TradeRecord:
@@ -176,6 +182,7 @@ class TradeRecord:
 # ---------------------------------------------------------------------------
 # Backtest result
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class BacktestResult:
@@ -304,6 +311,7 @@ class BacktestResult:
 # Backtest Engine
 # ---------------------------------------------------------------------------
 
+
 class BacktestEngine:
     """Production-grade backtesting engine.
 
@@ -387,7 +395,9 @@ class BacktestEngine:
 
         logger.info(
             "Starting backtest | symbol={} bars={} capital={}",
-            symbol, len(data), self.capital,
+            symbol,
+            len(data),
+            self.capital,
         )
 
         # Main simulation loop
@@ -417,7 +427,9 @@ class BacktestEngine:
 
             # Process entry signal
             if self.position is None and entry_signals.iloc[i]:
-                self._open_position(timestamp, candle, PositionType.LONG, symbol, current_atr)
+                self._open_position(
+                    timestamp, candle, PositionType.LONG, symbol, current_atr
+                )
                 continue
 
             # End-of-data: close any open position
@@ -431,8 +443,10 @@ class BacktestEngine:
         result = self._compute_metrics()
         logger.info(
             "Backtest complete | trades={} pnl={:,.2f} sharpe={:.2f} dd={:.2f}%",
-            result.total_trades, result.net_pnl,
-            result.sharpe_ratio, result.max_drawdown_pct,
+            result.total_trades,
+            result.net_pnl,
+            result.sharpe_ratio,
+            result.max_drawdown_pct,
         )
         return result
 
@@ -480,7 +494,12 @@ class BacktestEngine:
 
         logger.debug(
             "OPEN {} {} @ {:.2f} qty={} SL={:.2f} TGT={:.2f}",
-            direction.value, symbol, entry_price, quantity, sl_price, target_price,
+            direction.value,
+            symbol,
+            entry_price,
+            quantity,
+            sl_price,
+            target_price,
         )
 
     def _close_position(
@@ -521,10 +540,9 @@ class BacktestEngine:
         entry_turnover = entry_price * quantity
         exit_turnover = exit_price * quantity
         total_brokerage = self.config.brokerage_per_order * 2  # Entry + exit
-        total_slippage = (
-            entry_turnover * (self.config.slippage_pct / 100)
-            + exit_turnover * (self.config.slippage_pct / 100)
-        )
+        total_slippage = entry_turnover * (
+            self.config.slippage_pct / 100
+        ) + exit_turnover * (self.config.slippage_pct / 100)
 
         net_pnl = gross_pnl - total_brokerage - total_slippage
         pnl_pct = (net_pnl / self.config.initial_capital) * 100
@@ -556,7 +574,11 @@ class BacktestEngine:
 
         logger.debug(
             "CLOSE {} {} @ {:.2f} pnl={:,.2f} reason={}",
-            direction, symbol, exit_price, net_pnl, reason.value,
+            direction,
+            symbol,
+            exit_price,
+            net_pnl,
+            reason.value,
         )
 
         self.position = None
@@ -639,7 +661,11 @@ class BacktestEngine:
         """
         sizing = self.config.position_sizing_type
         value = self.config.position_sizing_value
-        capital = self.capital if self.config.compound_returns else self.config.initial_capital
+        capital = (
+            self.capital
+            if self.config.compound_returns
+            else self.config.initial_capital
+        )
 
         if sizing == PositionSizingType.FIXED_QTY:
             return max(1, int(value))
@@ -685,7 +711,11 @@ class BacktestEngine:
             else:
                 sl_price = entry_price + atr * atr_mult
         else:
-            sl_price = entry_price * 0.95 if direction == PositionType.LONG else entry_price * 1.05
+            sl_price = (
+                entry_price * 0.95
+                if direction == PositionType.LONG
+                else entry_price * 1.05
+            )
 
         # Target
         if self.config.target_type == "fixed_pct":
@@ -709,7 +739,11 @@ class BacktestEngine:
             else:
                 target_price = entry_price - reward
         else:
-            target_price = entry_price * 1.02 if direction == PositionType.LONG else entry_price * 0.98
+            target_price = (
+                entry_price * 1.02
+                if direction == PositionType.LONG
+                else entry_price * 0.98
+            )
 
         return round(sl_price, 2), round(target_price, 2)
 
@@ -742,25 +776,35 @@ class BacktestEngine:
         mtm = 0.0
         if self.position is not None:
             # Use last known price for open position MTM
-            last_price = self.position.get("highest_reached", self.position["entry_price"])
+            last_price = self.position.get(
+                "highest_reached", self.position["entry_price"]
+            )
             if self.position["direction"] == "long":
-                mtm = (last_price - self.position["entry_price"]) * self.position["quantity"]
+                mtm = (last_price - self.position["entry_price"]) * self.position[
+                    "quantity"
+                ]
             else:
-                mtm = (self.position["entry_price"] - last_price) * self.position["quantity"]
+                mtm = (self.position["entry_price"] - last_price) * self.position[
+                    "quantity"
+                ]
 
-        self.equity_curve.append({
-            "timestamp": timestamp,
-            "equity": round(self.capital + mtm, 2),
-            "cash": round(self.capital, 2),
-            "mtm": round(mtm, 2),
-        })
+        self.equity_curve.append(
+            {
+                "timestamp": timestamp,
+                "equity": round(self.capital + mtm, 2),
+                "cash": round(self.capital, 2),
+                "mtm": round(mtm, 2),
+            }
+        )
 
     def _log_daily_pnl(self, timestamp: datetime, pnl: float) -> None:
         """Log P&L for daily aggregation."""
-        self.daily_pnl_log.append({
-            "date": timestamp.date() if hasattr(timestamp, "date") else timestamp,
-            "pnl": round(pnl, 2),
-        })
+        self.daily_pnl_log.append(
+            {
+                "date": timestamp.date() if hasattr(timestamp, "date") else timestamp,
+                "pnl": round(pnl, 2),
+            }
+        )
 
     # ------------------------------------------------------------------
     # Metric computation
@@ -789,9 +833,7 @@ class BacktestEngine:
         result.gross_profit = sum(t.pnl for t in self.trades if t.pnl > 0)
         result.gross_loss = sum(t.pnl for t in self.trades if t.pnl < 0)
         result.net_pnl = result.gross_profit + result.gross_loss
-        result.net_pnl_pct = (
-            (result.net_pnl / self.config.initial_capital) * 100
-        )
+        result.net_pnl_pct = (result.net_pnl / self.config.initial_capital) * 100
         result.profit_factor = (
             abs(result.gross_profit / result.gross_loss)
             if result.gross_loss != 0
@@ -814,7 +856,9 @@ class BacktestEngine:
             if t.exit_time and t.entry_time:
                 delta = t.exit_time - t.entry_time
                 holding_periods.append(delta.total_seconds() / 3600)
-        result.avg_holding_period_hours = np.mean(holding_periods) if holding_periods else 0.0
+        result.avg_holding_period_hours = (
+            np.mean(holding_periods) if holding_periods else 0.0
+        )
 
         # Costs
         result.total_brokerage = sum(t.brokerage for t in self.trades)
@@ -864,8 +908,11 @@ class BacktestEngine:
         # R-multiple (R = initial risk per trade)
         r_multiples = []
         for t in self.trades:
-            risk = abs(t.entry_price - t.lowest_reached) * t.quantity if t.direction == "long" else \
-                   abs(t.highest_reached - t.entry_price) * t.quantity
+            risk = (
+                abs(t.entry_price - t.lowest_reached) * t.quantity
+                if t.direction == "long"
+                else abs(t.highest_reached - t.entry_price) * t.quantity
+            )
             if risk > 0:
                 r_multiples.append(t.pnl / risk)
         result.avg_r_multiple = np.mean(r_multiples) if r_multiples else 0.0
@@ -895,7 +942,9 @@ class BacktestEngine:
         if pd.isna(avg_delta) or not isinstance(avg_delta, timedelta):
             periods_per_year = 252.0  # Default: daily
         else:
-            periods_per_year = float(timedelta(days=365).total_seconds()) / float(avg_delta.total_seconds())
+            periods_per_year = float(timedelta(days=365).total_seconds()) / float(
+                avg_delta.total_seconds()
+            )
 
         excess_returns = returns - (risk_free_rate / periods_per_year)
         sharpe = excess_returns.mean() / returns.std() * np.sqrt(periods_per_year)
@@ -915,7 +964,9 @@ class BacktestEngine:
         if pd.isna(avg_delta) or not isinstance(avg_delta, timedelta):
             periods_per_year = 252.0
         else:
-            periods_per_year = float(timedelta(days=365).total_seconds()) / float(avg_delta.total_seconds())
+            periods_per_year = float(timedelta(days=365).total_seconds()) / float(
+                avg_delta.total_seconds()
+            )
 
         downside_returns = returns[returns < 0]
         downside_std = downside_returns.std() if len(downside_returns) > 0 else 0
@@ -934,13 +985,17 @@ class BacktestEngine:
         """Calmar ratio = annualised return / max drawdown."""
         if max_drawdown == 0:
             return 0.0
-        total_return = (equity_series.iloc[-1] - self.config.initial_capital) / self.config.initial_capital
+        total_return = (
+            equity_series.iloc[-1] - self.config.initial_capital
+        ) / self.config.initial_capital
 
         avg_delta = equity_series.index.to_series().diff().mean()
         if pd.isna(avg_delta) or avg_delta == 0 or not isinstance(avg_delta, timedelta):
             periods_per_year = 252.0
         else:
-            periods_per_year = float(timedelta(days=365).total_seconds()) / float(avg_delta.total_seconds())
+            periods_per_year = float(timedelta(days=365).total_seconds()) / float(
+                avg_delta.total_seconds()
+            )
 
         n_periods = len(equity_series)
         if n_periods <= 1:
@@ -969,12 +1024,14 @@ class BacktestEngine:
         for ts, dd_val, dd_pct_val in zip(
             equity_series.index, drawdown.values, drawdown_pct.values
         ):
-            dd_curve.append({
-                "timestamp": ts,
-                "drawdown": round(float(dd_val), 2),
-                "drawdown_pct": round(float(dd_pct_val), 4),
-                "peak": round(float(rolling_max[ts]), 2),
-            })
+            dd_curve.append(
+                {
+                    "timestamp": ts,
+                    "drawdown": round(float(dd_val), 2),
+                    "drawdown_pct": round(float(dd_pct_val), 4),
+                    "peak": round(float(rolling_max[ts]), 2),
+                }
+            )
 
         return max_dd, dd_curve
 
@@ -991,14 +1048,18 @@ class BacktestEngine:
 
         result = []
         for month_end, pnl in monthly.items():
-            result.append({
-                "month": month_end.strftime("%Y-%m"),
-                "pnl": round(pnl, 2),
-                "trades": sum(
-                    1 for t in self.trades
-                    if t.exit_time and t.exit_time.strftime("%Y-%m") == month_end.strftime("%Y-%m")
-                ),
-            })
+            result.append(
+                {
+                    "month": month_end.strftime("%Y-%m"),
+                    "pnl": round(pnl, 2),
+                    "trades": sum(
+                        1
+                        for t in self.trades
+                        if t.exit_time
+                        and t.exit_time.strftime("%Y-%m") == month_end.strftime("%Y-%m")
+                    ),
+                }
+            )
 
         return result
 

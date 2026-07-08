@@ -26,7 +26,9 @@ def _parse_expr(expr: str) -> Tuple[str, Tuple[float, ...]]:
     params_str = match.group("params")
     params: Tuple[float, ...] = ()
     if params_str:
-        params = tuple(float(p.strip()) for p in params_str.split(",") if p.strip() != "")
+        params = tuple(
+            float(p.strip()) for p in params_str.split(",") if p.strip() != ""
+        )
     return name, params
 
 
@@ -82,23 +84,39 @@ def _resolve_series(df: pd.DataFrame, expr: str) -> pd.Series:
     if name == "RSI":
         return ind.rsi(df["close"], int(params[0]) if params else 14)
     if name == "ATR":
-        return ind.atr(df["high"], df["low"], df["close"], int(params[0]) if params else 14)
+        return ind.atr(
+            df["high"], df["low"], df["close"], int(params[0]) if params else 14
+        )
     if name == "ADX":
-        return ind.adx(df["high"], df["low"], df["close"], int(params[0]) if params else 14)
+        return ind.adx(
+            df["high"], df["low"], df["close"], int(params[0]) if params else 14
+        )
     if name == "CCI":
-        return ind.cci(df["high"], df["low"], df["close"], int(params[0]) if params else 20)
+        return ind.cci(
+            df["high"], df["low"], df["close"], int(params[0]) if params else 20
+        )
     if name == "MFI":
-        return ind.mfi(df["high"], df["low"], df["close"], df["volume"], int(params[0]) if params else 14)
+        return ind.mfi(
+            df["high"],
+            df["low"],
+            df["close"],
+            df["volume"],
+            int(params[0]) if params else 14,
+        )
     if name == "Stochastic":
         k, _ = ind.stochastic(
-            df["high"], df["low"], df["close"],
+            df["high"],
+            df["low"],
+            df["close"],
             int(params[0]) if len(params) > 0 else 14,
             int(params[1]) if len(params) > 1 else 3,
         )
         return k
     if name == "Supertrend":
         upper, lower = ind.supertrend(
-            df["high"], df["low"], df["close"],
+            df["high"],
+            df["low"],
+            df["close"],
             int(params[0]) if len(params) > 0 else 10,
             params[1] if len(params) > 1 else 3.0,
         )
@@ -126,7 +144,9 @@ def _apply_operator(left: pd.Series, right: pd.Series, operator: str) -> pd.Seri
     raise ValueError(f"Unsupported operator: {operator}")
 
 
-def evaluate_conditions(df: pd.DataFrame, conditions: List[Dict[str, Any]]) -> Optional[pd.Series]:
+def evaluate_conditions(
+    df: pd.DataFrame, conditions: List[Dict[str, Any]]
+) -> Optional[pd.Series]:
     """
     Evaluate a list of strategy conditions against a DataFrame.
 

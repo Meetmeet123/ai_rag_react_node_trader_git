@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field
 from loguru import logger
 
 import rag_service
-from celery_app import celery_app
 from config import settings
 from core.backtest_engine import BacktestConfig, BacktestEngine
 from tasks.backtest import run_backtest_task
@@ -46,14 +45,28 @@ class BacktestRequest(BaseModel):
     strategy_id: str = Field(..., description="ID of the strategy to backtest")
     start_date: datetime = Field(..., description="Backtest start date")
     end_date: datetime = Field(..., description="Backtest end date")
-    initial_capital: float = Field(default=1_000_000.0, gt=0, description="Starting capital in INR")
-    brokerage_per_order: float = Field(default=20.0, ge=0, description="Brokerage per order side")
-    slippage_pct: float = Field(default=0.05, ge=0, description="Slippage as percentage of price")
-    position_sizing_type: str = Field(default="fixed_qty", description="fixed_qty | pct_capital | risk_based")
-    position_sizing_value: float = Field(default=1.0, gt=0, description="Position sizing value")
-    stop_loss_type: str = Field(default="fixed_pct", description="fixed_pct | atr | none")
+    initial_capital: float = Field(
+        default=1_000_000.0, gt=0, description="Starting capital in INR"
+    )
+    brokerage_per_order: float = Field(
+        default=20.0, ge=0, description="Brokerage per order side"
+    )
+    slippage_pct: float = Field(
+        default=0.05, ge=0, description="Slippage as percentage of price"
+    )
+    position_sizing_type: str = Field(
+        default="fixed_qty", description="fixed_qty | pct_capital | risk_based"
+    )
+    position_sizing_value: float = Field(
+        default=1.0, gt=0, description="Position sizing value"
+    )
+    stop_loss_type: str = Field(
+        default="fixed_pct", description="fixed_pct | atr | none"
+    )
     stop_loss_value: float = Field(default=1.0, ge=0, description="Stop loss value")
-    target_type: str = Field(default="fixed_pct", description="fixed_pct | atr | rr_based | none")
+    target_type: str = Field(
+        default="fixed_pct", description="fixed_pct | atr | rr_based | none"
+    )
     target_value: float = Field(default=2.0, ge=0, description="Target value")
     allow_short: bool = Field(default=True, description="Allow short selling")
 
@@ -142,7 +155,9 @@ def _object_id(id_str: str) -> PydanticObjectId:
         ) from exc
 
 
-def _backtest_summary_to_dict(bt: BacktestRun, strategy_name: Optional[str] = None) -> Dict[str, Any]:
+def _backtest_summary_to_dict(
+    bt: BacktestRun, strategy_name: Optional[str] = None
+) -> Dict[str, Any]:
     """Convert BacktestRun to summary dict."""
     return {
         "id": str(bt.id),
@@ -164,7 +179,9 @@ def _backtest_summary_to_dict(bt: BacktestRun, strategy_name: Optional[str] = No
     }
 
 
-def _backtest_detail_to_dict(bt: BacktestRun, strategy_name: Optional[str] = None) -> Dict[str, Any]:
+def _backtest_detail_to_dict(
+    bt: BacktestRun, strategy_name: Optional[str] = None
+) -> Dict[str, Any]:
     """Convert BacktestRun to full detail dict."""
     return {
         "id": str(bt.id),
@@ -298,7 +315,9 @@ async def _execute_backtest(
         bt.avg_holding_period = result.avg_holding_period_hours
         bt.equity_curve = result.equity_curve
         bt.drawdown_curve = result.drawdown_curve
-        bt.monthly_returns = {"monthly": result.monthly_returns} if result.monthly_returns else None
+        bt.monthly_returns = (
+            {"monthly": result.monthly_returns} if result.monthly_returns else None
+        )
         bt.trade_log = [t.to_dict() for t in result.trade_log]
         bt.completed_at = datetime.utcnow()
         await bt.save()
@@ -375,7 +394,9 @@ async def run_backtest(
         )
 
     if current_user is not None and strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     # Create backtest record
     backtest_run = BacktestRun(
@@ -418,7 +439,9 @@ async def run_backtest(
             request,
         )
 
-    return BacktestDetailResponse(**_backtest_detail_to_dict(backtest_run, strategy.name))
+    return BacktestDetailResponse(
+        **_backtest_detail_to_dict(backtest_run, strategy.name)
+    )
 
 
 @router.get(
@@ -446,12 +469,15 @@ async def list_backtests(
     strategy_ids = {bt.strategy_id for bt in backtests if bt.strategy_id}
     strategies = (
         await Strategy.find({"_id": {"$in": list(strategy_ids)}}).to_list()
-        if strategy_ids else []
+        if strategy_ids
+        else []
     )
     strategy_names = {str(s.id): s.name for s in strategies}
 
     backtest_dicts = [
-        BacktestSummaryResponse(**_backtest_summary_to_dict(bt, strategy_names.get(str(bt.strategy_id))))
+        BacktestSummaryResponse(
+            **_backtest_summary_to_dict(bt, strategy_names.get(str(bt.strategy_id)))
+        )
         for bt in backtests
     ]
 
@@ -481,7 +507,9 @@ async def get_backtest(
         )
 
     if current_user is not None and backtest.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     strategy_name = None
     if backtest.strategy_id:
@@ -510,7 +538,9 @@ async def get_equity_curve(
         )
 
     if current_user is not None and backtest.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     return {
         "backtest_id": backtest_id,
@@ -539,7 +569,9 @@ async def get_trade_log(
         )
 
     if current_user is not None and backtest.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     return {
         "backtest_id": backtest_id,
@@ -569,7 +601,9 @@ async def delete_backtest(
         )
 
     if current_user is not None and backtest.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     await backtest.delete()
 

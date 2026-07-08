@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { requestLiveApproval } from '@/lib/api';
 import {
   Landmark,
   Wifi,
@@ -91,8 +93,23 @@ function configToFormState(config: BrokerConfig): FormState {
 }
 
 export default function Brokers() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [requestingApproval, setRequestingApproval] = useState(false);
+  const isApproved = user?.is_approved_for_live ?? false;
+
+  const handleRequestApproval = useCallback(async () => {
+    setRequestingApproval(true);
+    try {
+      const res = await requestLiveApproval();
+      toast.success(res.message);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit approval request');
+    } finally {
+      setRequestingApproval(false);
+    }
+  }, []);
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [supported, setSupported] = useState<string[]>(['paper', 'upstox']);
@@ -344,6 +361,27 @@ export default function Brokers() {
           Connect a broker to enable live trading or use paper trading to simulate orders.
         </p>
       </div>
+
+      {!isApproved && (
+        <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="text-amber-400 mt-0.5" size={18} />
+            <div>
+              <p className="text-sm font-medium text-amber-200">Live trading approval required</p>
+              <p className="text-xs text-amber-300/80">
+                You can save broker credentials, but real-broker connectivity and order execution are disabled until an admin approves your account.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleRequestApproval}
+            disabled={requestingApproval}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-semibold rounded transition-colors"
+          >
+            {requestingApproval ? 'Submitting...' : 'Request Approval'}
+          </button>
+        </div>
+      )}
 
       {/* Info Banner */}
       <div className="flex items-start gap-2.5 px-3 py-2.5 bg-[rgba(245,158,11,0.08)] rounded-[6px] border border-[rgba(245,158,11,0.15)]">

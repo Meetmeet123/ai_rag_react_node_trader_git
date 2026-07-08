@@ -53,11 +53,14 @@ async def test_llm_engine_fine_tune(tmp_path: Any) -> None:
         assert os.path.isdir(checkpoint_path)
 
         # LoRA adapter artefacts should be present, or a full model checkpoint.
-        has_adapter = os.path.isfile(os.path.join(checkpoint_path, "adapter_config.json"))
-        has_pytorch_model = os.path.isfile(os.path.join(checkpoint_path, "pytorch_model.bin"))
+        has_adapter = os.path.isfile(
+            os.path.join(checkpoint_path, "adapter_config.json")
+        )
+        has_pytorch_model = os.path.isfile(
+            os.path.join(checkpoint_path, "pytorch_model.bin")
+        )
         has_safetensors = any(
-            fname.endswith(".safetensors")
-            for fname in os.listdir(checkpoint_path)
+            fname.endswith(".safetensors") for fname in os.listdir(checkpoint_path)
         )
         assert has_adapter or has_pytorch_model or has_safetensors
 

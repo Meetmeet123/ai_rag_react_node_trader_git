@@ -29,11 +29,12 @@ import json
 import os
 import re
 import time
-from datetime import datetime
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
+
+from core.metrics import PREDICTION_LATENCY
 
 # ---------------------------------------------------------------------------
 # Lazy imports for heavy ML libraries — only loaded when LLMEngine is used.
@@ -93,14 +94,13 @@ def _load_ml_deps() -> None:
             PeftModel as _PeftModel,
             TaskType as _TaskType,
         )
+
         LoraConfig = _LoraConfig
         get_peft_model = _get_peft_model
         PeftModel = _PeftModel
         TaskType = _TaskType
     except ImportError:
-        logger.warning(
-            "PEFT is not installed. Fine-tuning will not be available."
-        )
+        logger.warning("PEFT is not installed. Fine-tuning will not be available.")
         LoraConfig = None
         get_peft_model = None
         PeftModel = None
@@ -121,7 +121,9 @@ class StopLossConfig(BaseModel):
         default="fixed_pct",
         description="Stop-loss type: fixed_pct / trailing / atr / volatility_based",
     )
-    value: float = Field(default=1.0, description="Stop-loss value (context depends on type)")
+    value: float = Field(
+        default=1.0, description="Stop-loss value (context depends on type)"
+    )
     atr_multiplier: Optional[float] = Field(
         default=None, description="ATR multiplier when type='atr'"
     )
@@ -137,7 +139,9 @@ class TargetConfig(BaseModel):
         default="fixed_pct",
         description="Target type: fixed_pct / risk_reward / trailing / partial",
     )
-    value: float = Field(default=2.0, description="Target value (context depends on type)")
+    value: float = Field(
+        default=2.0, description="Target value (context depends on type)"
+    )
     risk_reward_ratio: Optional[float] = Field(
         default=None, description="R:R ratio when type='risk_reward'"
     )
@@ -153,9 +157,7 @@ class PositionSizingConfig(BaseModel):
         default="pct_capital",
         description="Sizing type: fixed_qty / pct_capital / risk_based / kelly",
     )
-    value: float = Field(
-        default=10.0, description="Value (context depends on type)"
-    )
+    value: float = Field(default=10.0, description="Value (context depends on type)")
     max_position_pct: float = Field(
         default=25.0, description="Maximum position size as % of capital"
     )
@@ -167,7 +169,9 @@ class PositionSizingConfig(BaseModel):
 class Condition(BaseModel):
     """Single entry or exit condition within a strategy."""
 
-    indicator: str = Field(description="Technical indicator name (rsi, sma, ema, macd, ...)")
+    indicator: str = Field(
+        description="Technical indicator name (rsi, sma, ema, macd, ...)"
+    )
     condition: str = Field(
         description="Comparison operator: <, >, ==, crosses_above, crosses_below, between"
     )
@@ -211,7 +215,8 @@ class StrategyOutput(BaseModel):
         default_factory=TargetConfig, description="Profit target configuration"
     )
     position_sizing: PositionSizingConfig = Field(
-        default_factory=PositionSizingConfig, description="Position sizing configuration"
+        default_factory=PositionSizingConfig,
+        description="Position sizing configuration",
     )
 
     confidence: float = Field(
@@ -438,7 +443,9 @@ class LLMEngine:
         else:
             self.device = device
 
-        logger.info(f"LLMEngine initialising — base_model={base_model}, device={self.device}")
+        logger.info(
+            f"LLMEngine initialising — base_model={base_model}, device={self.device}"
+        )
 
         # Internal handles (populated by _load_model)
         self._tokenizer: Optional[Any] = None
@@ -476,11 +483,14 @@ class LLMEngine:
             # ---- Model loading options ------------------------------------
             model_kwargs: Dict[str, Any] = {
                 "trust_remote_code": True,
-                "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+                "torch_dtype": (
+                    torch.float16 if self.device == "cuda" else torch.float32
+                ),
             }
 
             if self.quantization == "4bit":
                 from transformers import BitsAndBytesConfig
+
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_compute_dtype=torch.float16,
@@ -536,7 +546,9 @@ class LLMEngine:
             os.path.join(self.checkpoint_dir, d)
             for d in os.listdir(self.checkpoint_dir)
             if os.path.isdir(os.path.join(self.checkpoint_dir, d))
-            and os.path.isfile(os.path.join(self.checkpoint_dir, d, "adapter_config.json"))
+            and os.path.isfile(
+                os.path.join(self.checkpoint_dir, d, "adapter_config.json")
+            )
         ]
         if not candidates:
             return None
@@ -548,11 +560,7 @@ class LLMEngine:
         """Build a chat-style prompt compatible with DialoGPT."""
         # DialoGPT does not use a special chat template — we use a simple
         # structured format that the model can learn from fine-tuning data.
-        return (
-            f"System: {system_msg}\n"
-            f"User: {user_msg}\n"
-            f"Assistant:"
-        )
+        return f"System: {system_msg}\n" f"User: {user_msg}\n" f"Assistant:"
 
     def _generate_text(
         self,
@@ -618,7 +626,11 @@ class LLMEngine:
             text = json_match.group(1).strip()
 
         # 3. Attempt parse + truncation repair
-        for strategy in (lambda t: json.loads(t), lambda t: json.loads(t + "}"), lambda t: json.loads(t + "}}")):
+        for strategy in (
+            lambda t: json.loads(t),
+            lambda t: json.loads(t + "}"),
+            lambda t: json.loads(t + "}}"),
+        ):
             try:
                 return strategy(text)
             except json.JSONDecodeError:
@@ -764,7 +776,10 @@ class LLMEngine:
                 disable_tqdm=True,
             )
             # Older/newer transformers versions may not accept this arg.
-            if "overwrite_output_dir" in TrainingArguments.__init__.__code__.co_varnames:
+            if (
+                "overwrite_output_dir"
+                in TrainingArguments.__init__.__code__.co_varnames
+            ):
                 training_args_kwargs["overwrite_output_dir"] = True
             training_args = TrainingArguments(**training_args_kwargs)
 
@@ -817,21 +832,105 @@ class LLMEngine:
             raw_output = self._generate_text(built_prompt, max_new_tokens=384)
             parsed = self._safe_json_parse(raw_output)
 
+            # Retry once with an even stricter JSON-only prompt before falling back.
+            if parsed is None:
+                logger.debug("First parse failed — retrying with explicit JSON prompt")
+                retry_system = (
+                    self._STRATEGY_SYSTEM_PROMPT
+                    + "\nIMPORTANT: Respond with ONLY a raw JSON object. "
+                    "No markdown fences, no commentary, no apologies."
+                )
+                built_prompt = self._build_prompt(retry_system, prompt)
+                raw_output = self._generate_text(built_prompt, max_new_tokens=384)
+                parsed = self._safe_json_parse(raw_output)
+
             if parsed is not None:
                 strategy = self._strategy_from_dict(parsed, prompt)
                 elapsed = time.perf_counter() - start_time
+                PREDICTION_LATENCY.observe(elapsed)
                 logger.info(f"Strategy generated in {elapsed:.2f}s (LLM path).")
                 return strategy
 
         except Exception as exc:
-            logger.warning(f"LLM generation failed ({exc}) — falling back to rule-based.")
+            logger.warning(
+                f"LLM generation failed ({exc}) — falling back to rule-based."
+            )
 
         # Fallback: rule-based extraction
         fallback = StrategyLLM()
         strategy = fallback.quick_generate(prompt)
         elapsed = time.perf_counter() - start_time
+        PREDICTION_LATENCY.observe(elapsed)
         logger.info(f"Strategy generated in {elapsed:.2f}s (rule-based fallback).")
         return strategy
+
+    def generate_strategy_shadow(
+        self,
+        prompt: str,
+        challenger_checkpoint_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Run strategy generation through both active and challenger models.
+
+        This is the shadow-mode inference path: the active (live) model is used
+        for the real response, while the challenger model (a newly trained
+        checkpoint) is evaluated in parallel.  The outputs are compared and a
+        simple winner is chosen based on parseability and confidence.
+
+        Parameters
+        ----------
+        prompt:
+            Natural-language trading idea.
+        challenger_checkpoint_path:
+            Filesystem path to the challenger LoRA checkpoint.  If omitted or
+            invalid, the active model output is duplicated for the challenger.
+
+        Returns
+        -------
+        Dict
+            ``{"active": {...}, "challenger": {...}, "comparison": {...}}``.
+        """
+        active_output = self.generate_strategy(prompt)
+
+        challenger_output = active_output
+        if challenger_checkpoint_path:
+            try:
+                challenger = LLMEngine(
+                    base_model=self.base_model_name,
+                    checkpoint_dir=self.checkpoint_dir,
+                    device=self.device,
+                    max_length=self.max_length,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    repetition_penalty=self.repetition_penalty,
+                    use_lora=self.use_lora,
+                    lora_checkpoint=challenger_checkpoint_path,
+                    quantization=self.quantization,
+                )
+                challenger_output = challenger.generate_strategy(prompt)
+            except Exception as exc:
+                logger.warning(
+                    f"Challenger inference failed: {exc} — using active output"
+                )
+
+        active_dict = active_output.to_dict()
+        challenger_dict = challenger_output.to_dict()
+
+        # Simple comparison: higher confidence wins; ties go to active.
+        active_conf = active_dict.get("confidence", 0.0)
+        challenger_conf = challenger_dict.get("confidence", 0.0)
+        winner = "challenger" if challenger_conf > active_conf else "active"
+
+        return {
+            "active": active_dict,
+            "challenger": challenger_dict,
+            "comparison": {
+                "active_confidence": active_conf,
+                "challenger_confidence": challenger_conf,
+                "winner": winner,
+                "agreement": active_dict.get("strategy_name")
+                == challenger_dict.get("strategy_name"),
+            },
+        }
 
     def analyze_backtest(
         self,
@@ -863,13 +962,19 @@ class LLMEngine:
         user_prompt = f"Analyze these backtest results:\n{backtest_json}"
 
         try:
-            system_msg = system_prompt if system_prompt else self._BACKTEST_SYSTEM_PROMPT
+            system_msg = (
+                system_prompt if system_prompt else self._BACKTEST_SYSTEM_PROMPT
+            )
             built_prompt = self._build_prompt(system_msg, user_prompt)
-            analysis = self._generate_text(built_prompt, max_new_tokens=512, temperature=0.5)
+            analysis = self._generate_text(
+                built_prompt, max_new_tokens=512, temperature=0.5
+            )
             logger.info("Backtest analysis generated (LLM path).")
             return analysis
         except Exception as exc:
-            logger.warning(f"LLM analysis failed ({exc}) — using template-based analysis.")
+            logger.warning(
+                f"LLM analysis failed ({exc}) — using template-based analysis."
+            )
             return self._template_backtest_analysis(backtest_results)
 
     def chat(
@@ -942,7 +1047,9 @@ class LLMEngine:
 
         try:
             built_prompt = self._build_prompt(self._EXPLAIN_SYSTEM_PROMPT, user_prompt)
-            explanation = self._generate_text(built_prompt, max_new_tokens=512, temperature=0.6)
+            explanation = self._generate_text(
+                built_prompt, max_new_tokens=512, temperature=0.6
+            )
             logger.info("Strategy explanation generated (LLM path).")
             return explanation
         except Exception as exc:
@@ -974,13 +1081,21 @@ class LLMEngine:
         lines.append("### Assessment")
         issues: List[str] = []
         if sharpe < 1.0:
-            issues.append("Sharpe ratio below 1.0 — consider improving risk-adjusted returns.")
+            issues.append(
+                "Sharpe ratio below 1.0 — consider improving risk-adjusted returns."
+            )
         if max_dd > 20:
-            issues.append("Max drawdown exceeds 20% — risk management needs tightening.")
+            issues.append(
+                "Max drawdown exceeds 20% — risk management needs tightening."
+            )
         if win_rate < 40:
-            issues.append("Win rate is low — review entry criteria or reward:risk ratio.")
+            issues.append(
+                "Win rate is low — review entry criteria or reward:risk ratio."
+            )
         if trades < 30:
-            issues.append("Low trade count — results may not be statistically significant.")
+            issues.append(
+                "Low trade count — results may not be statistically significant."
+            )
 
         if not issues:
             lines.append("Strategy shows solid performance across key metrics.")
@@ -995,7 +1110,9 @@ class LLMEngine:
         if max_dd > 20:
             lines.append("- Reduce position size or add a volatility filter.")
         if win_rate < 40:
-            lines.append("- Add confirmation indicators (e.g., volume, trend alignment).")
+            lines.append(
+                "- Add confirmation indicators (e.g., volume, trend alignment)."
+            )
         lines.append("- Consider Walk-Forward Analysis to validate robustness.")
 
         return "\n".join(lines)
@@ -1018,7 +1135,9 @@ class LLMEngine:
             lines.append(desc)
             lines.append("")
 
-        lines.append(f"This strategy trades **{instrument}** in the **{segment}** segment on the **{timeframe}** timeframe.")
+        lines.append(
+            f"This strategy trades **{instrument}** in the **{segment}** segment on the **{timeframe}** timeframe."
+        )
         lines.append("")
 
         # Entry conditions
@@ -1067,12 +1186,15 @@ class LLMEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _strategy_from_dict(data: Dict[str, Any], original_prompt: str = "") -> StrategyOutput:
+    def _strategy_from_dict(
+        data: Dict[str, Any], original_prompt: str = ""
+    ) -> StrategyOutput:
         """
         Safely convert a parsed JSON dictionary into a ``StrategyOutput``.
 
         Handles missing / malformed fields gracefully by filling sensible defaults.
         """
+
         # Helper to build Condition objects
         def _make_conditions(raw_list: List[Any]) -> List[Condition]:
             conditions: List[Condition] = []
@@ -1088,7 +1210,12 @@ class LLMEngine:
                                 condition=item.get("condition", ">"),
                                 value=item.get("value", 0),
                                 period=item.get("period"),
-                                params={k: v for k, v in item.items() if k not in {"indicator", "condition", "value", "period"}},
+                                params={
+                                    k: v
+                                    for k, v in item.items()
+                                    if k
+                                    not in {"indicator", "condition", "value", "period"}
+                                },
                             )
                         )
             return conditions
@@ -1118,8 +1245,12 @@ class LLMEngine:
             sizing = PositionSizingConfig(type="pct_capital", value=10.0)
 
         return StrategyOutput(
-            strategy_name=data.get("strategy_name", data.get("name", "Auto-Generated Strategy")),
-            description=data.get("description", f"Strategy generated from: {original_prompt}"),
+            strategy_name=data.get(
+                "strategy_name", data.get("name", "Auto-Generated Strategy")
+            ),
+            description=data.get(
+                "description", f"Strategy generated from: {original_prompt}"
+            ),
             instrument=data.get("instrument", data.get("symbol", "NIFTY50")),
             segment=data.get("segment", "equity"),
             timeframe=data.get("timeframe", "15m"),
@@ -1291,7 +1422,12 @@ class StrategyLLM:
                 "default_params": {"period": 10, "multiplier": 3},
             },
             "fibonacci": {
-                "names": ["fibonacci", "fib", "fib retracement", "fibonacci retracement"],
+                "names": [
+                    "fibonacci",
+                    "fib",
+                    "fib retracement",
+                    "fibonacci retracement",
+                ],
                 "params": ["level"],
                 "default_params": {"level": 61.8},
             },
@@ -1340,13 +1476,25 @@ class StrategyLLM:
                 "keywords": ["sma", "crossover", "golden cross", "bullish", "above"],
                 "template": {
                     "entry_conditions": [
-                        Condition(indicator="sma", condition="crosses_above", value=50, period=20),
+                        Condition(
+                            indicator="sma",
+                            condition="crosses_above",
+                            value=50,
+                            period=20,
+                        ),
                     ],
                     "exit_conditions": [
-                        Condition(indicator="sma", condition="crosses_below", value=50, period=20),
+                        Condition(
+                            indicator="sma",
+                            condition="crosses_below",
+                            value=50,
+                            period=20,
+                        ),
                     ],
                     "stop_loss": StopLossConfig(type="fixed_pct", value=1.5),
-                    "target": TargetConfig(type="risk_reward", value=3.0, risk_reward_ratio=2.0),
+                    "target": TargetConfig(
+                        type="risk_reward", value=3.0, risk_reward_ratio=2.0
+                    ),
                 },
             },
             {
@@ -1354,13 +1502,25 @@ class StrategyLLM:
                 "keywords": ["sma", "crossover", "death cross", "bearish", "below"],
                 "template": {
                     "entry_conditions": [
-                        Condition(indicator="sma", condition="crosses_below", value=50, period=20),
+                        Condition(
+                            indicator="sma",
+                            condition="crosses_below",
+                            value=50,
+                            period=20,
+                        ),
                     ],
                     "exit_conditions": [
-                        Condition(indicator="sma", condition="crosses_above", value=50, period=20),
+                        Condition(
+                            indicator="sma",
+                            condition="crosses_above",
+                            value=50,
+                            period=20,
+                        ),
                     ],
                     "stop_loss": StopLossConfig(type="fixed_pct", value=1.5),
-                    "target": TargetConfig(type="risk_reward", value=3.0, risk_reward_ratio=2.0),
+                    "target": TargetConfig(
+                        type="risk_reward", value=3.0, risk_reward_ratio=2.0
+                    ),
                 },
             },
             {
@@ -1368,12 +1528,24 @@ class StrategyLLM:
                 "keywords": ["ema", "trend", "exponential", "bullish", "above"],
                 "template": {
                     "entry_conditions": [
-                        Condition(indicator="ema", condition="crosses_above", value=200, period=20),
+                        Condition(
+                            indicator="ema",
+                            condition="crosses_above",
+                            value=200,
+                            period=20,
+                        ),
                     ],
                     "exit_conditions": [
-                        Condition(indicator="ema", condition="crosses_below", value=200, period=20),
+                        Condition(
+                            indicator="ema",
+                            condition="crosses_below",
+                            value=200,
+                            period=20,
+                        ),
                     ],
-                    "stop_loss": StopLossConfig(type="atr", value=1.5, atr_multiplier=1.5),
+                    "stop_loss": StopLossConfig(
+                        type="atr", value=1.5, atr_multiplier=1.5
+                    ),
                     "target": TargetConfig(type="trailing", value=3.0, trail_pct=1.0),
                 },
             },
@@ -1406,12 +1578,18 @@ class StrategyLLM:
                 "keywords": ["bollinger", "squeeze", "band", "volatility", "breakout"],
                 "template": {
                     "entry_conditions": [
-                        Condition(indicator="bollinger", condition="<", value=-2, period=20),
+                        Condition(
+                            indicator="bollinger", condition="<", value=-2, period=20
+                        ),
                     ],
                     "exit_conditions": [
-                        Condition(indicator="bollinger", condition=">", value=2, period=20),
+                        Condition(
+                            indicator="bollinger", condition=">", value=2, period=20
+                        ),
                     ],
-                    "stop_loss": StopLossConfig(type="atr", value=2.0, atr_multiplier=2.0),
+                    "stop_loss": StopLossConfig(
+                        type="atr", value=2.0, atr_multiplier=2.0
+                    ),
                     "target": TargetConfig(type="fixed_pct", value=4.0),
                 },
             },
@@ -1449,13 +1627,21 @@ class StrategyLLM:
                             params={"period": 10, "multiplier": 3},
                         ),
                     ],
-                    "stop_loss": StopLossConfig(type="atr", value=2.0, atr_multiplier=2.0),
+                    "stop_loss": StopLossConfig(
+                        type="atr", value=2.0, atr_multiplier=2.0
+                    ),
                     "target": TargetConfig(type="trailing", value=5.0, trail_pct=1.5),
                 },
             },
             {
                 "name": "Stochastic Reversal",
-                "keywords": ["stochastic", "stoch", "reversal", "oversold", "overbought"],
+                "keywords": [
+                    "stochastic",
+                    "stoch",
+                    "reversal",
+                    "oversold",
+                    "overbought",
+                ],
                 "template": {
                     "entry_conditions": [
                         Condition(
@@ -1487,7 +1673,9 @@ class StrategyLLM:
                     "exit_conditions": [
                         Condition(indicator="adx", condition="<", value=20, period=14),
                     ],
-                    "stop_loss": StopLossConfig(type="atr", value=2.0, atr_multiplier=2.0),
+                    "stop_loss": StopLossConfig(
+                        type="atr", value=2.0, atr_multiplier=2.0
+                    ),
                     "target": TargetConfig(type="trailing", value=4.0, trail_pct=1.5),
                 },
             },
@@ -1528,7 +1716,9 @@ class StrategyLLM:
                         ),
                     ],
                     "stop_loss": StopLossConfig(type="fixed_pct", value=1.2),
-                    "target": TargetConfig(type="risk_reward", value=2.5, risk_reward_ratio=2.0),
+                    "target": TargetConfig(
+                        type="risk_reward", value=2.5, risk_reward_ratio=2.0
+                    ),
                 },
             },
         ]
@@ -1617,7 +1807,7 @@ class StrategyLLM:
             position_sizing=pos_sizing,
             confidence=0.7,  # Rule-based = moderate confidence
             reasoning=f"Matched template '{name}' via keyword extraction. "
-                      f"Detected indicators: {', '.join(user_indicators) or 'none'}.",
+            f"Detected indicators: {', '.join(user_indicators) or 'none'}.",
         )
 
     # ------------------------------------------------------------------
@@ -1716,7 +1906,9 @@ class StrategyLLM:
     def _extract_position_sizing(self, prompt: str) -> Optional[PositionSizingConfig]:
         """Extract position sizing hints from the prompt."""
         # Percentage of capital
-        m = re.search(r"(\d+(?:\.\d+)?)\s*%\s+(?:of\s+)?(?:capital|portfolio|account)", prompt)
+        m = re.search(
+            r"(\d+(?:\.\d+)?)\s*%\s+(?:of\s+)?(?:capital|portfolio|account)", prompt
+        )
         if m:
             return PositionSizingConfig(type="pct_capital", value=float(m.group(1)))
         # Fixed quantity
@@ -1748,14 +1940,26 @@ class StrategyLLM:
             "rsi": {"condition": "<", "value": 30},
             "sma": {"condition": "crosses_above", "value": 50},
             "ema": {"condition": "crosses_above", "value": 200},
-            "macd": {"condition": "crosses_above", "value": 0, "params": {"fast": 12, "slow": 26, "signal": 9}},
+            "macd": {
+                "condition": "crosses_above",
+                "value": 0,
+                "params": {"fast": 12, "slow": 26, "signal": 9},
+            },
             "bollinger": {"condition": "<", "value": -2},
             "atr": {"condition": ">", "value": 1.5},
             "vwap": {"condition": "<", "value": -0.5},
-            "stochastic": {"condition": "<", "value": 20, "params": {"k_period": 14, "d_period": 3}},
+            "stochastic": {
+                "condition": "<",
+                "value": 20,
+                "params": {"k_period": 14, "d_period": 3},
+            },
             "adx": {"condition": ">", "value": 25},
             "volume": {"condition": ">", "value": 1.5},
-            "supertrend": {"condition": "==", "value": 1, "params": {"period": 10, "multiplier": 3}},
+            "supertrend": {
+                "condition": "==",
+                "value": 1,
+                "params": {"period": 10, "multiplier": 3},
+            },
         }
         d = defaults.get(name, {"condition": ">", "value": 0})
         return Condition(
@@ -1777,14 +1981,26 @@ class StrategyLLM:
             "rsi": {"condition": ">", "value": 70},
             "sma": {"condition": "crosses_below", "value": 50},
             "ema": {"condition": "crosses_below", "value": 200},
-            "macd": {"condition": "crosses_below", "value": 0, "params": {"fast": 12, "slow": 26, "signal": 9}},
+            "macd": {
+                "condition": "crosses_below",
+                "value": 0,
+                "params": {"fast": 12, "slow": 26, "signal": 9},
+            },
             "bollinger": {"condition": ">", "value": 2},
             "atr": {"condition": "<", "value": 0.5},
             "vwap": {"condition": ">", "value": 0.5},
-            "stochastic": {"condition": ">", "value": 80, "params": {"k_period": 14, "d_period": 3}},
+            "stochastic": {
+                "condition": ">",
+                "value": 80,
+                "params": {"k_period": 14, "d_period": 3},
+            },
             "adx": {"condition": "<", "value": 20},
             "volume": {"condition": "<", "value": 0.8},
-            "supertrend": {"condition": "==", "value": -1, "params": {"period": 10, "multiplier": 3}},
+            "supertrend": {
+                "condition": "==",
+                "value": -1,
+                "params": {"period": 10, "multiplier": 3},
+            },
         }
         d = defaults.get(name, {"condition": "<", "value": 0})
         return Condition(
@@ -1806,17 +2022,29 @@ class StrategyLLM:
         tgt: TargetConfig,
     ) -> str:
         """Assemble a human-readable description string."""
-        lines: List[str] = [f"{name} strategy for {instrument} on the {timeframe} timeframe."]
+        lines: List[str] = [
+            f"{name} strategy for {instrument} on the {timeframe} timeframe."
+        ]
         lines.append("")
-        lines.append("Entry: " + " AND ".join(
-            f"{c.indicator.upper()}{f'({c.period})' if c.period else ''} {c.condition} {c.value}"
-            for c in entries
-        ) + ".")
-        lines.append("Exit: " + " AND ".join(
-            f"{c.indicator.upper()}{f'({c.period})' if c.period else ''} {c.condition} {c.value}"
-            for c in exits
-        ) + ".")
-        lines.append(f"Stop-loss: {sl.type} = {sl.value}. Target: {tgt.type} = {tgt.value}.")
+        lines.append(
+            "Entry: "
+            + " AND ".join(
+                f"{c.indicator.upper()}{f'({c.period})' if c.period else ''} {c.condition} {c.value}"
+                for c in entries
+            )
+            + "."
+        )
+        lines.append(
+            "Exit: "
+            + " AND ".join(
+                f"{c.indicator.upper()}{f'({c.period})' if c.period else ''} {c.condition} {c.value}"
+                for c in exits
+            )
+            + "."
+        )
+        lines.append(
+            f"Stop-loss: {sl.type} = {sl.value}. Target: {tgt.type} = {tgt.value}."
+        )
         return " ".join(lines)
 
 
@@ -1862,13 +2090,15 @@ def format_strategy_for_display(strategy: StrategyOutput) -> str:
         line = f"    {cond.indicator.upper()}{period_str} {cond.condition} {cond.value}"
         lines.append(f"║{line:<62}║")
 
-    lines.extend([
-        "╠══════════════════════════════════════════════════════════════╣",
-        f"║  Stop Loss  : {strategy.stop_loss.type} = {strategy.stop_loss.value:<35} ║",
-        f"║  Target     : {strategy.target.type} = {strategy.target.value:<35} ║",
-        f"║  Position   : {strategy.position_sizing.type} = {strategy.position_sizing.value:<35} ║",
-        "╚══════════════════════════════════════════════════════════════╝",
-    ])
+    lines.extend(
+        [
+            "╠══════════════════════════════════════════════════════════════╣",
+            f"║  Stop Loss  : {strategy.stop_loss.type} = {strategy.stop_loss.value:<35} ║",
+            f"║  Target     : {strategy.target.type} = {strategy.target.value:<35} ║",
+            f"║  Position   : {strategy.position_sizing.type} = {strategy.position_sizing.value:<35} ║",
+            "╚══════════════════════════════════════════════════════════════╝",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -1898,7 +2128,8 @@ def merge_strategies(
         New strategy with combined conditions.
     """
     return StrategyOutput(
-        strategy_name=merge_name or f"Merged: {strategy_a.strategy_name} + {strategy_b.strategy_name}",
+        strategy_name=merge_name
+        or f"Merged: {strategy_a.strategy_name} + {strategy_b.strategy_name}",
         description=f"Merged strategy combining {strategy_a.strategy_name} and {strategy_b.strategy_name}.",
         instrument=strategy_a.instrument,
         segment=strategy_a.segment,
@@ -1943,7 +2174,9 @@ def validate_strategy(strategy: StrategyOutput) -> Tuple[bool, List[str]]:
         issues.append("Position size exceeds maximum allowed percentage.")
 
     # Check for duplicate conditions
-    entry_keys = [f"{c.indicator}_{c.condition}_{c.value}" for c in strategy.entry_conditions]
+    entry_keys = [
+        f"{c.indicator}_{c.condition}_{c.value}" for c in strategy.entry_conditions
+    ]
     if len(entry_keys) != len(set(entry_keys)):
         issues.append("Duplicate entry conditions detected.")
 

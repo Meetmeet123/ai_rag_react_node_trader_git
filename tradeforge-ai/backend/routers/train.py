@@ -1,11 +1,11 @@
 """
 Training Pipeline API Routes
 
-- POST /trigger -- Manually trigger training
+- POST /trigger -- Manually trigger training (enqueues Celery worker if available)
 - GET /status -- Get training pipeline status
 - GET /jobs -- List training jobs
 - GET /jobs/{id} -- Get job details
-- POST /start-auto -- Start auto-training (20-min cron)
+- POST /start-auto -- Start auto-training (Celery beat flag)
 - POST /stop-auto -- Stop auto-training
 - POST /rollback -- Rollback to previous model version
 """
@@ -15,11 +15,12 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from loguru import logger
 
-from core.auto_trainer import AutoTrainingPipeline, TrainingJob, TrainingStatus
+from core.auto_trainer import AutoTrainingPipeline, TrainingJob, TriggerReason
 from core.model_registry import ModelRegistry
+from database.models import TrainingLog
 
 router = APIRouter()
 
@@ -140,6 +141,33 @@ def _job_to_dict(job: TrainingJob) -> Dict[str, Any]:
     }
 
 
+def _training_log_to_dict(doc: TrainingLog) -> Dict[str, Any]:
+    """Convert a TrainingLog document to the TrainingJob dict shape."""
+    data = doc.model_dump()
+
+    def _iso(val: Any) -> Any:
+        from datetime import datetime
+
+        return val.isoformat() if isinstance(val, datetime) else val
+
+    return {
+        "job_id": data.get("job_id"),
+        "trigger_reason": data.get("trigger_reason"),
+        "started_at": _iso(data.get("started_at")),
+        "completed_at": _iso(data.get("completed_at")),
+        "status": data.get("status"),
+        "data_samples": data.get("data_samples") or 0,
+        "epochs_trained": data.get("epochs") or 0,
+        "final_loss": data.get("final_loss") or 0.0,
+        "validation_loss": data.get("validation_loss") or 0.0,
+        "model_version_id": data.get("version_id"),
+        "checkpoint_path": data.get("checkpoint_path") or "",
+        "error_message": data.get("error_message") or "",
+        "backtest_metrics": data.get("backtest_metrics") or {},
+        "deployed": data.get("deployed") or False,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
@@ -149,21 +177,39 @@ def _job_to_dict(job: TrainingJob) -> Dict[str, Any]:
     "/trigger",
     response_model=TrainingTriggerResponse,
     summary="Manually trigger training",
-    description="Manually trigger a training run. The job runs in the background.",
+    description="Manually trigger a training run. Enqueues a Celery worker when available.",
 )
 async def trigger_training() -> TrainingTriggerResponse:
     """Manually trigger a training run."""
     try:
         pipeline = _get_pipeline()
-        job_id = await pipeline.trigger_manual_training()
 
-        logger.info("Manual training triggered — job {}", job_id)
+        # Prefer Celery so the heavy work happens in a worker process.
+        try:
+            from tasks.training import run_training_cycle
 
-        return TrainingTriggerResponse(
-            success=True,
-            job_id=job_id,
-            message=f"Training job {job_id} started",
-        )
+            job_id = await pipeline.reserve_job_id(
+                trigger_reason=TriggerReason.MANUAL.value
+            )
+            run_training_cycle.apply_async(kwargs={"job_id": job_id})
+
+            logger.info("Manual training enqueued — job {}", job_id)
+            return TrainingTriggerResponse(
+                success=True,
+                job_id=job_id,
+                message="Training enqueued",
+            )
+        except Exception as celery_exc:
+            logger.warning(
+                "Celery enqueue failed, falling back to inline training: {}",
+                celery_exc,
+            )
+            job_id = await pipeline.trigger_manual_training()
+            return TrainingTriggerResponse(
+                success=True,
+                job_id=job_id,
+                message=f"Training job {job_id} started",
+            )
 
     except HTTPException:
         raise
@@ -185,9 +231,9 @@ async def get_training_status() -> TrainingStatusResponse:
     """Get auto-training pipeline status."""
     try:
         pipeline = _get_pipeline()
-        status = pipeline.get_status()
+        pipeline_status = await pipeline.get_status()
 
-        return TrainingStatusResponse(**status)
+        return TrainingStatusResponse(**pipeline_status)
 
     except HTTPException:
         raise
@@ -209,7 +255,7 @@ async def list_training_jobs(limit: int = 50) -> TrainingJobListResponse:
     """List recent training jobs."""
     try:
         pipeline = _get_pipeline()
-        jobs = pipeline.get_jobs_history(limit=limit)
+        jobs = await pipeline.get_jobs_history(limit=limit)
 
         return TrainingJobListResponse(
             jobs=jobs,
@@ -236,17 +282,14 @@ async def list_training_jobs(limit: int = 50) -> TrainingJobListResponse:
 async def get_training_job(job_id: int) -> TrainingJobResponse:
     """Get training job details by ID."""
     try:
-        pipeline = _get_pipeline()
-        jobs = pipeline.jobs_history
-
-        job = next((j for j in jobs if j.job_id == job_id), None)
-        if job is None:
+        log_doc = await TrainingLog.find_one(TrainingLog.job_id == job_id)
+        if log_doc is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Training job {job_id} not found",
             )
 
-        return TrainingJobResponse(**_job_to_dict(job))
+        return TrainingJobResponse(**_training_log_to_dict(log_doc))
 
     except HTTPException:
         raise
@@ -261,13 +304,13 @@ async def get_training_job(job_id: int) -> TrainingJobResponse:
 @router.post(
     "/start-auto",
     summary="Start auto-training",
-    description="Start the automatic training scheduler (runs every 20 minutes).",
+    description="Enable the automatic training scheduler (Celery beat runs every 20 minutes).",
 )
 async def start_auto_training() -> Dict[str, str]:
-    """Start 20-minute auto-training cron."""
+    """Enable the 20-minute auto-training flag."""
     try:
         pipeline = _get_pipeline()
-        pipeline.start()
+        await pipeline.start()
 
         logger.info("Auto-training scheduler started")
 
@@ -292,10 +335,10 @@ async def start_auto_training() -> Dict[str, str]:
     description="Stop the automatic training scheduler.",
 )
 async def stop_auto_training() -> Dict[str, str]:
-    """Stop auto-training cron."""
+    """Disable auto-training flag."""
     try:
         pipeline = _get_pipeline()
-        pipeline.stop()
+        await pipeline.stop()
 
         logger.info("Auto-training scheduler stopped")
 
@@ -351,6 +394,7 @@ async def rollback_model() -> RollbackResponse:
 # ---------------------------------------------------------------------------
 # Injection hook (called from main.py lifespan)
 # ---------------------------------------------------------------------------
+
 
 def set_pipeline_instance(pipeline: AutoTrainingPipeline) -> None:
     """Inject the global pipeline instance from main.py."""

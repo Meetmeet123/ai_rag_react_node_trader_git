@@ -60,7 +60,6 @@ from core.broker.base import (
     ProductType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fyers API constants
 # ---------------------------------------------------------------------------
@@ -87,14 +86,14 @@ _PRODUCT_MAP = {
 }
 
 _ORDER_TYPE_MAP = {
-    OrderType.MARKET: "2",   # Fyers: 2 = Market
-    OrderType.LIMIT: "1",    # Fyers: 1 = Limit
-    OrderType.SL: "4",       # Fyers: 4 = Stop-Loss (SL-L)
-    OrderType.SL_M: "3",     # Fyers: 3 = SL-M
+    OrderType.MARKET: "2",  # Fyers: 2 = Market
+    OrderType.LIMIT: "1",  # Fyers: 1 = Limit
+    OrderType.SL: "4",  # Fyers: 4 = Stop-Loss (SL-L)
+    OrderType.SL_M: "3",  # Fyers: 3 = SL-M
 }
 
 _SIDE_MAP = {
-    OrderSide.BUY: "1",   # Fyers: 1 = Buy
+    OrderSide.BUY: "1",  # Fyers: 1 = Buy
     OrderSide.SELL: "-1",  # Fyers: -1 = Sell
 }
 
@@ -109,18 +108,19 @@ _EXCHANGE_MAP = {
 
 # Status mapping
 _STATUS_MAP = {
-    "1": OrderStatus.EXECUTED,       # Completely executed
-    "2": OrderStatus.PENDING,        # Pending
-    "3": OrderStatus.REJECTED,       # Rejected
-    "4": OrderStatus.CANCELLED,      # Cancelled
-    "5": OrderStatus.TRANSIT,        # Transit
-    "6": OrderStatus.TRIGGER_PENDING, # Trigger pending
+    "1": OrderStatus.EXECUTED,  # Completely executed
+    "2": OrderStatus.PENDING,  # Pending
+    "3": OrderStatus.REJECTED,  # Rejected
+    "4": OrderStatus.CANCELLED,  # Cancelled
+    "5": OrderStatus.TRANSIT,  # Transit
+    "6": OrderStatus.TRIGGER_PENDING,  # Trigger pending
 }
 
 
 # ---------------------------------------------------------------------------
 # Broker implementation
 # ---------------------------------------------------------------------------
+
 
 class FyersBroker(BaseBroker):
     """Fyers API v3 broker connector.
@@ -143,7 +143,9 @@ class FyersBroker(BaseBroker):
     ):
         self.app_id = app_id or os.getenv("FYERS_APP_ID", "")
         self.app_secret = app_secret or os.getenv("FYERS_APP_SECRET", "")
-        self.redirect_uri = redirect_uri or os.getenv("FYERS_REDIRECT_URI", "https://localhost")
+        self.redirect_uri = redirect_uri or os.getenv(
+            "FYERS_REDIRECT_URI", "https://localhost"
+        )
         self.access_token = access_token or os.getenv("FYERS_ACCESS_TOKEN")
 
         self.user_id: Optional[str] = None
@@ -274,9 +276,8 @@ class FyersBroker(BaseBroker):
     def _generate_app_hash(self) -> str:
         """Generate SHA-256 hash of app_id:app_secret."""
         import hashlib
-        return hashlib.sha256(
-            f"{self.app_id}:{self.app_secret}".encode()
-        ).hexdigest()
+
+        return hashlib.sha256(f"{self.app_id}:{self.app_secret}".encode()).hexdigest()
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -339,7 +340,11 @@ class FyersBroker(BaseBroker):
             "side": int(_SIDE_MAP.get(params.side, "1")),
             "productType": _PRODUCT_MAP.get(params.product_type, "INTRADAY"),
             "limitPrice": params.price if params.order_type == OrderType.LIMIT else 0,
-            "stopPrice": params.trigger_price if params.order_type in (OrderType.SL, OrderType.SL_M) else 0,
+            "stopPrice": (
+                params.trigger_price
+                if params.order_type in (OrderType.SL, OrderType.SL_M)
+                else 0
+            ),
             "validity": "DAY",
             "disclosedQty": 0,
             "offlineOrder": False,
@@ -389,9 +394,9 @@ class FyersBroker(BaseBroker):
         if "trigger_price" in params:
             payload["stopPrice"] = float(params["trigger_price"])
         if "order_type" in params:
-            payload["type"] = int(_ORDER_TYPE_MAP.get(
-                OrderType(params["order_type"]), "2"
-            ))
+            payload["type"] = int(
+                _ORDER_TYPE_MAP.get(OrderType(params["order_type"]), "2")
+            )
 
         try:
             response = await self._client().patch(ORDERS_ENDPOINT, json=payload)
@@ -485,16 +490,18 @@ class FyersBroker(BaseBroker):
                 status_code = str(item.get("status", "2"))
                 # Parse symbol from Fyers format: NSE:SBIN-EQ -> SBIN-EQ
                 symbol = item.get("symbol", "").split(":")[-1]
-                results.append(OrderResult(
-                    order_id=item.get("id", ""),
-                    status=_STATUS_MAP.get(status_code, OrderStatus.PENDING),
-                    symbol=symbol,
-                    quantity=int(item.get("qty", 0)),
-                    filled_qty=int(item.get("filledQty", 0)),
-                    avg_price=float(item.get("filledAvgPrice", 0) or 0),
-                    message=item.get("message", ""),
-                    broker_raw=item,
-                ))
+                results.append(
+                    OrderResult(
+                        order_id=item.get("id", ""),
+                        status=_STATUS_MAP.get(status_code, OrderStatus.PENDING),
+                        symbol=symbol,
+                        quantity=int(item.get("qty", 0)),
+                        filled_qty=int(item.get("filledQty", 0)),
+                        avg_price=float(item.get("filledAvgPrice", 0) or 0),
+                        message=item.get("message", ""),
+                        broker_raw=item,
+                    )
+                )
             return results
 
         except Exception as exc:
@@ -512,25 +519,28 @@ class FyersBroker(BaseBroker):
             data = self._handle_response(response)
 
             net_pos = data.get("netPositions", []) if isinstance(data, dict) else []
-            day_pos = data.get("overall", {}) if isinstance(data, dict) else {}
 
             positions = []
             for item in net_pos:
                 symbol = item.get("symbol", "").split(":")[-1]
                 qty = int(item.get("netQty", 0))
-                positions.append(PositionData(
-                    symbol=symbol,
-                    exchange=Exchange(item.get("exchange", "NSE")),
-                    product=ProductType.MIS,
-                    quantity=qty,
-                    avg_price=float(item.get("buyAvg", item.get("sellAvg", 0)) or 0),
-                    last_price=float(item.get("ltp", 0) or 0),
-                    pnl=float(item.get("pl", 0) or 0),
-                    day_pnl=float(item.get("dayPl", 0) or 0),
-                    buy_quantity=int(item.get("buyQty", 0)),
-                    sell_quantity=int(item.get("sellQty", 0)),
-                    broker_raw=item,
-                ))
+                positions.append(
+                    PositionData(
+                        symbol=symbol,
+                        exchange=Exchange(item.get("exchange", "NSE")),
+                        product=ProductType.MIS,
+                        quantity=qty,
+                        avg_price=float(
+                            item.get("buyAvg", item.get("sellAvg", 0)) or 0
+                        ),
+                        last_price=float(item.get("ltp", 0) or 0),
+                        pnl=float(item.get("pl", 0) or 0),
+                        day_pnl=float(item.get("dayPl", 0) or 0),
+                        buy_quantity=int(item.get("buyQty", 0)),
+                        sell_quantity=int(item.get("sellQty", 0)),
+                        broker_raw=item,
+                    )
+                )
             return positions
 
         except Exception as exc:
@@ -550,16 +560,18 @@ class FyersBroker(BaseBroker):
             holdings = []
             for item in holdings_list:
                 symbol = item.get("symbol", "").split(":")[-1]
-                holdings.append(HoldingData(
-                    symbol=symbol,
-                    exchange=Exchange(item.get("exchange", "NSE")),
-                    quantity=int(item.get("quantity", 0)),
-                    avg_price=float(item.get("costPrice", 0) or 0),
-                    last_price=float(item.get("ltp", 0) or 0),
-                    pnl=float(item.get("pnl", 0) or 0),
-                    day_change_pct=float(item.get("fyToken", 0) or 0),
-                    broker_raw=item,
-                ))
+                holdings.append(
+                    HoldingData(
+                        symbol=symbol,
+                        exchange=Exchange(item.get("exchange", "NSE")),
+                        quantity=int(item.get("quantity", 0)),
+                        avg_price=float(item.get("costPrice", 0) or 0),
+                        last_price=float(item.get("ltp", 0) or 0),
+                        pnl=float(item.get("pnl", 0) or 0),
+                        day_change_pct=float(item.get("fyToken", 0) or 0),
+                        broker_raw=item,
+                    )
+                )
             return holdings
 
         except Exception as exc:
@@ -666,7 +678,13 @@ class FyersBroker(BaseBroker):
         ex = _EXCHANGE_MAP.get(exchange, "NSE")
         sym = symbol.upper().strip()
         # Append -EQ for equities if not already present
-        if ex in ("NSE", "BSE") and "-EQ" not in sym and "-CE" not in sym and "-PE" not in sym and "FUT" not in sym:
+        if (
+            ex in ("NSE", "BSE")
+            and "-EQ" not in sym
+            and "-CE" not in sym
+            and "-PE" not in sym
+            and "FUT" not in sym
+        ):
             sym = f"{sym}-EQ"
         return f"{ex}:{sym}"
 
@@ -703,6 +721,7 @@ class FyersBroker(BaseBroker):
 
         if not from_date:
             from datetime import timedelta
+
             from_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
         if not to_date:
             to_date = datetime.now().strftime("%Y-%m-%d")
@@ -725,14 +744,16 @@ class FyersBroker(BaseBroker):
             for c in candles:
                 # Format: [timestamp, open, high, low, close, volume]
                 if len(c) >= 6:
-                    results.append({
-                        "timestamp": datetime.fromtimestamp(c[0]),
-                        "open": c[1],
-                        "high": c[2],
-                        "low": c[3],
-                        "close": c[4],
-                        "volume": c[5],
-                    })
+                    results.append(
+                        {
+                            "timestamp": datetime.fromtimestamp(c[0]),
+                            "open": c[1],
+                            "high": c[2],
+                            "low": c[3],
+                            "close": c[4],
+                            "volume": c[5],
+                        }
+                    )
             return results
 
         except Exception as exc:
@@ -744,6 +765,8 @@ class FyersBroker(BaseBroker):
 # Custom exception
 # ---------------------------------------------------------------------------
 
+
 class FyersAPIError(Exception):
     """Raised when the Fyers API returns an error response."""
+
     pass

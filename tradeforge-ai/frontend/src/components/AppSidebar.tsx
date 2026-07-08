@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,7 +30,10 @@ const topNavItems = [
   { icon: Cpu, label: 'Training', path: '/app/training' },
 ];
 
-const adminNavItem = { icon: ShieldAlert, label: 'Audit Logs', path: '/app/admin/audit-logs' };
+const adminNavItems = [
+  { icon: ShieldAlert, label: 'Audit Logs', path: '/app/admin/audit-logs' },
+  { icon: UserCheck, label: 'Live Approvals', path: '/app/admin/live-approvals' },
+];
 
 const bottomNavItems = [
   { icon: Settings, label: 'Settings', path: '/app/settings' },
@@ -83,24 +87,26 @@ export default function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             </button>
           );
         })}
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => navigate(adminNavItem.path)}
-            className={`relative flex items-center gap-3 h-10 mx-1.5 rounded-[4px] transition-all duration-150 group ${
-              isActive(adminNavItem.path)
-                ? 'bg-[rgba(34,211,238,0.12)] text-[#22D3EE]'
-                : 'text-[#64748B] hover:bg-[#1A1A25] hover:text-[#94A3B8]'
-            } ${collapsed ? 'justify-center px-0' : 'px-3'}`}
-          >
-            {isActive(adminNavItem.path) && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#22D3EE] rounded-r-full" />
-            )}
-            <adminNavItem.icon size={20} className="shrink-0" />
-            {!collapsed && (
-              <span className="text-[13px] font-medium truncate">{adminNavItem.label}</span>
-            )}
-          </button>
-        )}
+        {user?.role === 'admin' &&
+          adminNavItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`relative flex items-center gap-3 h-10 mx-1.5 rounded-[4px] transition-all duration-150 group ${
+                isActive(item.path)
+                  ? 'bg-[rgba(34,211,238,0.12)] text-[#22D3EE]'
+                  : 'text-[#64748B] hover:bg-[#1A1A25] hover:text-[#94A3B8]'
+              } ${collapsed ? 'justify-center px-0' : 'px-3'}`}
+            >
+              {isActive(item.path) && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[#22D3EE] rounded-r-full" />
+              )}
+              <item.icon size={20} className="shrink-0" />
+              {!collapsed && (
+                <span className="text-[13px] font-medium truncate">{item.label}</span>
+              )}
+            </button>
+          ))}
       </nav>
 
       {/* Bottom Section */}

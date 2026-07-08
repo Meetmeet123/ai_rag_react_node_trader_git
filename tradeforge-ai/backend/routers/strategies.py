@@ -13,7 +13,6 @@ Strategy Management API Routes
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from beanie import PydanticObjectId
@@ -40,16 +39,28 @@ class StrategyCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=200, description="Strategy name")
     description: str = Field(default="", description="Strategy description")
-    instrument: str = Field(..., min_length=1, max_length=50, description="Trading instrument")
+    instrument: str = Field(
+        ..., min_length=1, max_length=50, description="Trading instrument"
+    )
     segment: str = Field(default="equity", description="Market segment")
     timeframe: str = Field(default="15m", description="Candle timeframe")
-    entry_conditions: List[dict] = Field(default_factory=list, description="Entry conditions")
-    exit_conditions: List[dict] = Field(default_factory=list, description="Exit conditions")
+    entry_conditions: List[dict] = Field(
+        default_factory=list, description="Entry conditions"
+    )
+    exit_conditions: List[dict] = Field(
+        default_factory=list, description="Exit conditions"
+    )
     stop_loss: dict = Field(default_factory=dict, description="Stop loss config")
     target: dict = Field(default_factory=dict, description="Target config")
-    position_sizing: dict = Field(default_factory=dict, description="Position sizing config")
-    definition: Optional[dict] = Field(default=None, description="Full strategy definition JSON")
-    nl_prompt: Optional[str] = Field(default=None, description="Original NL prompt (if AI-generated)")
+    position_sizing: dict = Field(
+        default_factory=dict, description="Position sizing config"
+    )
+    definition: Optional[dict] = Field(
+        default=None, description="Full strategy definition JSON"
+    )
+    nl_prompt: Optional[str] = Field(
+        default=None, description="Original NL prompt (if AI-generated)"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -225,7 +236,8 @@ async def create_strategy(
             instrument=strategy.instrument.upper(),
             segment=strategy.segment,
             timeframe=strategy.timeframe,
-            definition=strategy.definition or {
+            definition=strategy.definition
+            or {
                 "name": strategy.name,
                 "instrument": strategy.instrument,
                 "segment": strategy.segment,
@@ -251,7 +263,9 @@ async def create_strategy(
 
         await db_strategy.insert()
 
-        logger.info("Created strategy id={} name='{}'", db_strategy.id, db_strategy.name)
+        logger.info(
+            "Created strategy id={} name='{}'", db_strategy.id, db_strategy.name
+        )
 
         rag = rag_service.get_rag_or_none()
         if rag is not None:
@@ -294,7 +308,9 @@ async def get_strategy(
         )
 
     if current_user is not None and strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     return StrategyResponse(**_strategy_to_dict(strategy))
 
@@ -320,7 +336,9 @@ async def update_strategy(
         )
 
     if current_user is not None and db_strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     db_strategy.name = strategy.name
     db_strategy.description = strategy.description
@@ -330,12 +348,22 @@ async def update_strategy(
     db_strategy.definition = strategy.definition or db_strategy.definition
     db_strategy.entry_conditions = strategy.entry_conditions
     db_strategy.exit_conditions = strategy.exit_conditions
-    db_strategy.stop_loss_type = strategy.stop_loss.get("type", db_strategy.stop_loss_type)
-    db_strategy.stop_loss_value = float(strategy.stop_loss.get("value", db_strategy.stop_loss_value or 1.0))
+    db_strategy.stop_loss_type = strategy.stop_loss.get(
+        "type", db_strategy.stop_loss_type
+    )
+    db_strategy.stop_loss_value = float(
+        strategy.stop_loss.get("value", db_strategy.stop_loss_value or 1.0)
+    )
     db_strategy.target_type = strategy.target.get("type", db_strategy.target_type)
-    db_strategy.target_value = float(strategy.target.get("value", db_strategy.target_value or 2.0))
-    db_strategy.position_sizing_type = strategy.position_sizing.get("type", db_strategy.position_sizing_type)
-    db_strategy.position_sizing_value = float(strategy.position_sizing.get("value", db_strategy.position_sizing_value or 1.0))
+    db_strategy.target_value = float(
+        strategy.target.get("value", db_strategy.target_value or 2.0)
+    )
+    db_strategy.position_sizing_type = strategy.position_sizing.get(
+        "type", db_strategy.position_sizing_type
+    )
+    db_strategy.position_sizing_value = float(
+        strategy.position_sizing.get("value", db_strategy.position_sizing_value or 1.0)
+    )
     db_strategy.touch()
 
     await db_strategy.save()
@@ -350,7 +378,9 @@ async def update_strategy(
                 _strategy_to_dict(db_strategy),
             )
         except Exception as exc:
-            logger.warning("Failed to schedule RAG ingestion for strategy update: {}", exc)
+            logger.warning(
+                "Failed to schedule RAG ingestion for strategy update: {}", exc
+            )
 
     return StrategyResponse(**_strategy_to_dict(db_strategy))
 
@@ -374,7 +404,9 @@ async def delete_strategy(
         )
 
     if current_user is not None and db_strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     name = db_strategy.name
     await db_strategy.delete()
@@ -404,7 +436,9 @@ async def deploy_strategy(
         )
 
     if current_user is not None and db_strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     mode = request.mode.lower()
     if mode not in ("paper", "live"):
@@ -413,7 +447,9 @@ async def deploy_strategy(
             detail=f"Invalid mode '{mode}'. Must be 'paper' or 'live'.",
         )
 
-    if mode == "live" and (current_user is None or not current_user.is_approved_for_live):
+    if mode == "live" and (
+        current_user is None or not current_user.is_approved_for_live
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Live trading requires admin approval",
@@ -457,7 +493,9 @@ async def stop_strategy(
         )
 
     if current_user is not None and db_strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     previous_status = db_strategy.status.value if db_strategy.status else "unknown"
     db_strategy.status = StrategyStatus.DRAFT
@@ -497,7 +535,9 @@ async def duplicate_strategy(
         )
 
     if current_user is not None and db_strategy.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
 
     new_strategy = Strategy(
         user_id=current_user.id if current_user else None,

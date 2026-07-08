@@ -18,26 +18,25 @@ embedding and downstream retrieval.
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from loguru import logger
 
 from .models import (
     BacktestDocument,
-    BacktestMetrics,
     IndicatorDocument,
     MarketRegimeDocument,
     NewsDocument,
     StrategyDocument,
     TradeDocument,
 )
-
+from .vector_store import Document
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ChunkConfig:
@@ -57,6 +56,7 @@ class ChunkConfig:
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class DocumentProcessor:
     """Transforms heterogeneous trading data into RAG-ready documents.
@@ -86,18 +86,56 @@ class DocumentProcessor:
 
     # Common indicator names used for entity extraction
     _INDICATOR_NAMES = {
-        "rsi", "macd", "sma", "ema", "vwap", "atr", "bb", "bollinger",
-        "stochastic", "cci", "adx", "obv", "mfi", "williams", "roc",
-        "adx", "dmi", "parabolic", "sar", "ichimoku", "fibonacci",
-        "pivot", "support", "resistance", "trendline", "volume",
-        "momentum", "divergence", "breakout", "reversal",
+        "rsi",
+        "macd",
+        "sma",
+        "ema",
+        "vwap",
+        "atr",
+        "bb",
+        "bollinger",
+        "stochastic",
+        "cci",
+        "adx",
+        "obv",
+        "mfi",
+        "williams",
+        "roc",
+        "adx",
+        "dmi",
+        "parabolic",
+        "sar",
+        "ichimoku",
+        "fibonacci",
+        "pivot",
+        "support",
+        "resistance",
+        "trendline",
+        "volume",
+        "momentum",
+        "divergence",
+        "breakout",
+        "reversal",
     }
 
     _INDIAN_INDICES = {
-        "nifty", "nifty50", "nifty 50", "sensex", "banknifty",
-        "nifty bank", "finnifty", "nifty financial", "midcap",
-        "smallcap", "nifty it", "nifty pharma", "nifty auto",
-        "nifty metal", "nifty energy", "nifty fmcg", "nifty realty",
+        "nifty",
+        "nifty50",
+        "nifty 50",
+        "sensex",
+        "banknifty",
+        "nifty bank",
+        "finnifty",
+        "nifty financial",
+        "midcap",
+        "smallcap",
+        "nifty it",
+        "nifty pharma",
+        "nifty auto",
+        "nifty metal",
+        "nifty energy",
+        "nifty fmcg",
+        "nifty realty",
     }
 
     def __init__(self, chunk_config: Optional[ChunkConfig] = None) -> None:
@@ -399,7 +437,9 @@ class DocumentProcessor:
         ts = timestamp or datetime.utcnow()
         parts: List[str] = []
 
-        parts.append(f"Market Snapshot for {symbol} at Rs.{price:.2f} ({ts.isoformat()})")
+        parts.append(
+            f"Market Snapshot for {symbol} at Rs.{price:.2f} ({ts.isoformat()})"
+        )
 
         # RSI interpretation
         rsi = indicators.get("rsi_14") or indicators.get("rsi")
@@ -442,14 +482,18 @@ class DocumentProcessor:
                 cross_state = "bearish crossover"
             else:
                 cross_state = "neutral"
-            parts.append(f"MACD: {macd:.2f} vs Signal {macd_signal:.2f} ({cross_state})")
+            parts.append(
+                f"MACD: {macd:.2f} vs Signal {macd_signal:.2f} ({cross_state})"
+            )
 
         # ATR / Volatility
         atr = indicators.get("atr") or indicators.get("atr_14")
         if atr is not None:
             atr_pct = (atr / price) * 100 if price > 0 else 0
             vol_level = "high" if atr_pct > 2 else "moderate" if atr_pct > 1 else "low"
-            parts.append(f"ATR(14): {atr:.2f} ({atr_pct:.2f}% of price, {vol_level} volatility)")
+            parts.append(
+                f"ATR(14): {atr:.2f} ({atr_pct:.2f}% of price, {vol_level} volatility)"
+            )
 
         # Bollinger Bands
         bb_upper = indicators.get("bb_upper")
@@ -458,20 +502,30 @@ class DocumentProcessor:
         if bb_upper and bb_lower:
             bb_width = ((bb_upper - bb_lower) / bb_middle * 100) if bb_middle else 0
             squeeze = "Squeeze" if bb_width < 5 else "Wide"
-            parts.append(f"Bollinger: Upper {bb_upper:.2f}, Lower {bb_lower:.2f} ({squeeze}, width {bb_width:.1f}%)")
+            parts.append(
+                f"Bollinger: Upper {bb_upper:.2f}, Lower {bb_lower:.2f} ({squeeze}, width {bb_width:.1f}%)"
+            )
 
         # Volume
         volume = indicators.get("volume")
         vol_avg = indicators.get("volume_avg") or indicators.get("volume_sma_20")
         if volume and vol_avg:
             ratio = volume / vol_avg
-            v_state = "above average" if ratio > 1.2 else "below average" if ratio < 0.8 else "normal"
-            parts.append(f"Volume: {volume:,.0f} vs avg {vol_avg:,.0f} ({ratio:.1f}x, {v_state})")
+            v_state = (
+                "above average"
+                if ratio > 1.2
+                else "below average" if ratio < 0.8 else "normal"
+            )
+            parts.append(
+                f"Volume: {volume:,.0f} vs avg {vol_avg:,.0f} ({ratio:.1f}x, {v_state})"
+            )
 
         # ADX
         adx = indicators.get("adx") or indicators.get("adx_14")
         if adx is not None:
-            trend_strength = "strong" if adx > 25 else "weak" if adx < 20 else "moderate"
+            trend_strength = (
+                "strong" if adx > 25 else "weak" if adx < 20 else "moderate"
+            )
             parts.append(f"ADX(14): {adx:.1f} ({trend_strength} trend)")
 
         # VWAP
@@ -747,7 +801,9 @@ class DocumentProcessor:
                 "side": trade.side,
                 "status": trade.status,
                 "pnl": trade.pnl,
-                "entry_time": trade.entry_time.isoformat() if trade.entry_time else None,
+                "entry_time": (
+                    trade.entry_time.isoformat() if trade.entry_time else None
+                ),
                 **trade.metadata,
             },
         )
@@ -854,7 +910,11 @@ class DocumentProcessor:
         words = set(re.findall(r"[a-z][a-z0-9]*", lowered))
 
         indicators = [w.upper() for w in words if w in self._INDICATOR_NAMES]
-        symbols = [w.upper() for w in words if w.upper() in {s.upper() for s in self._INDIAN_INDICES}]
+        symbols = [
+            w.upper()
+            for w in words
+            if w.upper() in {s.upper() for s in self._INDIAN_INDICES}
+        ]
 
         actions = []
         if any(w in lowered for w in ("buy", "long", "purchase", "accumulate")):

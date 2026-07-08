@@ -81,6 +81,7 @@ export default function Register() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
               <input
+                data-testid="register-email"
                 type="email"
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
@@ -96,6 +97,7 @@ export default function Register() {
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
               <input
+                data-testid="register-username"
                 type="text"
                 value={form.username}
                 onChange={(e) => update('username', e.target.value)}
@@ -124,6 +126,7 @@ export default function Register() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
               <input
+                data-testid="register-password"
                 type={showPassword ? 'text' : 'password'}
                 value={form.password}
                 onChange={(e) => update('password', e.target.value)}
@@ -147,6 +150,7 @@ export default function Register() {
               Confirm Password
             </label>
             <input
+              data-testid="register-confirm-password"
               type={showPassword ? 'text' : 'password'}
               value={form.confirmPassword}
               onChange={(e) => update('confirmPassword', e.target.value)}
@@ -157,6 +161,7 @@ export default function Register() {
           </div>
 
           <button
+            data-testid="register-submit"
             type="submit"
             disabled={isSubmitting}
             className="w-full h-10 bg-[#22D3EE] text-[#030305] text-[14px] font-semibold rounded-[6px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"

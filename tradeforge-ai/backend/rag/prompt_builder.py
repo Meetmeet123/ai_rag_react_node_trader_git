@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional
 from jinja2 import BaseLoader, Environment, Template
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Prompt templates
 # ---------------------------------------------------------------------------
@@ -350,6 +349,7 @@ _STRATEGY_SUMMARY_TEMPLATE = """## Strategy Summary
 # Main class
 # ---------------------------------------------------------------------------
 
+
 class RAGPromptBuilder:
     """Builds LLM prompts enriched with RAG-retrieved context.
 
@@ -381,10 +381,16 @@ class RAGPromptBuilder:
     TEMPLATE_STRATEGY_SUMMARY: str = _STRATEGY_SUMMARY_TEMPLATE
 
     def __init__(self) -> None:
-        self._env = Environment(loader=BaseLoader(), trim_blocks=True, lstrip_blocks=True)
+        self._env = Environment(
+            loader=BaseLoader(), trim_blocks=True, lstrip_blocks=True
+        )
         self.templates: Dict[str, Template] = {
-            "strategy_generation": self._env.from_string(self.TEMPLATE_STRATEGY_GENERATION),
-            "strategy_improvement": self._env.from_string(self.TEMPLATE_STRATEGY_IMPROVEMENT),
+            "strategy_generation": self._env.from_string(
+                self.TEMPLATE_STRATEGY_GENERATION
+            ),
+            "strategy_improvement": self._env.from_string(
+                self.TEMPLATE_STRATEGY_IMPROVEMENT
+            ),
             "backtest_analysis": self._env.from_string(self.TEMPLATE_BACKTEST_ANALYSIS),
             "market_analysis": self._env.from_string(self.TEMPLATE_MARKET_ANALYSIS),
             "risk_assessment": self._env.from_string(self.TEMPLATE_RISK_ASSESSMENT),
@@ -426,7 +432,9 @@ class RAGPromptBuilder:
         similar = self._normalise_list(retrieved_context.get("similar_strategies", []))
         market = self._normalise_list(retrieved_context.get("market_context", []))
         news = self._normalise_list(retrieved_context.get("recent_news", []))
-        indicators = self._normalise_list(retrieved_context.get("indicator_explanations", []))
+        indicators = self._normalise_list(
+            retrieved_context.get("indicator_explanations", [])
+        )
         backtests = self._normalise_list(retrieved_context.get("backtest_insights", []))
 
         # Format for template consumption
@@ -448,7 +456,9 @@ class RAGPromptBuilder:
             backtest_insights=formatted_backtests,
         )
 
-        logger.info(f"Built strategy prompt: {len(prompt)} chars, instrument={instrument}")
+        logger.info(
+            f"Built strategy prompt: {len(prompt)} chars, instrument={instrument}"
+        )
         return prompt
 
     def build_strategy_improvement_prompt(
@@ -489,7 +499,9 @@ class RAGPromptBuilder:
         str
             Complete improvement prompt.
         """
-        similar_bts = self._normalise_list(retrieved_context.get("similar_backtests", []))
+        similar_bts = self._normalise_list(
+            retrieved_context.get("similar_backtests", [])
+        )
         market_ctx = self._normalise_list(retrieved_context.get("market_context", []))
 
         template = self.templates["strategy_improvement"]
@@ -505,7 +517,9 @@ class RAGPromptBuilder:
             market_context=[ctx.get("content", str(ctx)) for ctx in market_ctx],
         )
 
-        logger.info(f"Built improvement prompt for strategy '{strategy_name}': {len(prompt)} chars")
+        logger.info(
+            f"Built improvement prompt for strategy '{strategy_name}': {len(prompt)} chars"
+        )
         return prompt
 
     # ===================================================================
@@ -533,8 +547,12 @@ class RAGPromptBuilder:
             Complete backtest analysis prompt.
         """
         metrics = backtest_results.get("metrics", {})
-        similar_bts = self._normalise_list(retrieved_context.get("similar_backtests", []))
-        market_ctx = self._normalise_list(retrieved_context.get("market_conditions", []))
+        similar_bts = self._normalise_list(
+            retrieved_context.get("similar_backtests", [])
+        )
+        market_ctx = self._normalise_list(
+            retrieved_context.get("market_conditions", [])
+        )
 
         template = self.templates["backtest_analysis"]
         prompt = template.render(
@@ -577,7 +595,9 @@ class RAGPromptBuilder:
             Complete market analysis prompt.
         """
         news = self._normalise_list(retrieved_context.get("news", []))
-        historical = self._normalise_list(retrieved_context.get("historical_similarities", []))
+        historical = self._normalise_list(
+            retrieved_context.get("historical_similarities", [])
+        )
 
         template = self.templates["market_analysis"]
         prompt = template.render(
@@ -702,7 +722,9 @@ class RAGPromptBuilder:
         """
         if template_type not in self.templates:
             available = ", ".join(self.templates.keys())
-            raise ValueError(f"Unknown template '{template_type}'. Available: {available}")
+            raise ValueError(
+                f"Unknown template '{template_type}'. Available: {available}"
+            )
 
         template = self.templates[template_type]
         return template.render(**kwargs)
@@ -721,17 +743,19 @@ class RAGPromptBuilder:
 
             content = s.get("content", "")
             # Parse content if it's a raw string from vector store
-            formatted.append({
-                "name": s.get("name", s.get("strategy_name", "Unknown Strategy")),
-                "description": s.get("description", content[:200]),
-                "instrument": s.get("instrument", ""),
-                "timeframe": s.get("timeframe", ""),
-                "entry_conditions": s.get("entry_conditions", []),
-                "exit_conditions": s.get("exit_conditions", []),
-                "win_rate": s.get("win_rate", s.get("win_rate_pct", "N/A")),
-                "pnl": s.get("total_pnl", s.get("pnl", "N/A")),
-                "sharpe": s.get("sharpe_ratio", s.get("sharpe", "N/A")),
-            })
+            formatted.append(
+                {
+                    "name": s.get("name", s.get("strategy_name", "Unknown Strategy")),
+                    "description": s.get("description", content[:200]),
+                    "instrument": s.get("instrument", ""),
+                    "timeframe": s.get("timeframe", ""),
+                    "entry_conditions": s.get("entry_conditions", []),
+                    "exit_conditions": s.get("exit_conditions", []),
+                    "win_rate": s.get("win_rate", s.get("win_rate_pct", "N/A")),
+                    "pnl": s.get("total_pnl", s.get("pnl", "N/A")),
+                    "sharpe": s.get("sharpe_ratio", s.get("sharpe", "N/A")),
+                }
+            )
         return formatted
 
     @staticmethod
@@ -764,12 +788,14 @@ class RAGPromptBuilder:
             if isinstance(n, RetrievedContext_placeholder):
                 n = {"content": n.content, **n.metadata}
 
-            formatted.append({
-                "title": n.get("title", "Untitled"),
-                "summary": n.get("summary", n.get("content", "")[:300]),
-                "time_ago": n.get("time_ago", n.get("published_at", "")),
-                "source": n.get("source", ""),
-            })
+            formatted.append(
+                {
+                    "title": n.get("title", "Untitled"),
+                    "summary": n.get("summary", n.get("content", "")[:300]),
+                    "time_ago": n.get("time_ago", n.get("published_at", "")),
+                    "source": n.get("source", ""),
+                }
+            )
         return formatted
 
     @staticmethod
@@ -780,11 +806,13 @@ class RAGPromptBuilder:
             if isinstance(ind, RetrievedContext_placeholder):
                 ind = {"content": ind.content, **ind.metadata}
 
-            formatted.append({
-                "name": ind.get("name", "Unknown"),
-                "description": ind.get("description", ind.get("content", "")[:200]),
-                "best_for": ind.get("best_for", ind.get("category", "")),
-            })
+            formatted.append(
+                {
+                    "name": ind.get("name", "Unknown"),
+                    "description": ind.get("description", ind.get("content", "")[:200]),
+                    "best_for": ind.get("best_for", ind.get("category", "")),
+                }
+            )
         return formatted
 
     @staticmethod
@@ -795,13 +823,15 @@ class RAGPromptBuilder:
             if isinstance(bt, RetrievedContext_placeholder):
                 bt = {"content": bt.content, **bt.metadata}
 
-            formatted.append({
-                "strategy_name": bt.get("strategy_name", bt.get("name", "Unknown")),
-                "symbol": bt.get("symbol", ""),
-                "win_rate": bt.get("win_rate", "N/A"),
-                "pnl": bt.get("total_pnl", bt.get("pnl", "N/A")),
-                "sharpe": bt.get("sharpe_ratio", bt.get("sharpe", "N/A")),
-            })
+            formatted.append(
+                {
+                    "strategy_name": bt.get("strategy_name", bt.get("name", "Unknown")),
+                    "symbol": bt.get("symbol", ""),
+                    "win_rate": bt.get("win_rate", "N/A"),
+                    "pnl": bt.get("total_pnl", bt.get("pnl", "N/A")),
+                    "sharpe": bt.get("sharpe_ratio", bt.get("sharpe", "N/A")),
+                }
+            )
         return formatted
 
     @staticmethod
@@ -817,6 +847,7 @@ class RAGPromptBuilder:
 # ---------------------------------------------------------------------------
 # Placeholder to handle RetrievedContext objects without circular imports
 # ---------------------------------------------------------------------------
+
 
 class RetrievedContext_placeholder:
     """Minimal stand-in for ``retriever.RetrievedContext`` to avoid

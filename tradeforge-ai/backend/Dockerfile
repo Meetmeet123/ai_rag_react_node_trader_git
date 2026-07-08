@@ -55,7 +55,7 @@ RUN mkdir -p data/historical models strategies training/checkpoints logs && \
 USER tradeforge
 
 # Expose ports
-EXPOSE 8000 8765
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \

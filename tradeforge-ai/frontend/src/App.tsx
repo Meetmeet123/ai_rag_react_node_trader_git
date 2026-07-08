@@ -13,6 +13,7 @@ import Training from './pages/Training';
 import AIChat from './pages/AIChat';
 import Settings from './pages/Settings';
 import AuditLogs from './pages/AuditLogs';
+import LiveApprovals from './pages/admin/LiveApprovals';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { useAuth } from './contexts/AuthContext';
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/app/ai" element={<AIChat />} />
         <Route path="/app/settings" element={<Settings />} />
         <Route path="/app/admin/audit-logs" element={<AdminAuditLogs />} />
+        <Route path="/app/admin/live-approvals" element={<LiveApprovals />} />
       </Route>
     </Routes>
   );

@@ -34,15 +34,12 @@ Example (server-side broadcast):
 
 from __future__ import annotations
 
-import asyncio
-import json
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 import socketio
 from loguru import logger
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -59,6 +56,7 @@ DEFAULT_PING_INTERVAL = 25
 # ---------------------------------------------------------------------------
 # Server class
 # ---------------------------------------------------------------------------
+
 
 class TradeForgeWebSocket:
     """WebSocket server for real-time trading data distribution.
@@ -118,7 +116,9 @@ class TradeForgeWebSocket:
         async def connect(sid: str, environ: Dict[str, Any]) -> None:
             """Handle new client connection."""
             self.client_connections_total += 1
-            logger.info(f"Client connected: {sid} (total={self.client_connections_total})")
+            logger.info(
+                f"Client connected: {sid} (total={self.client_connections_total})"
+            )
             # Auto-subscribe to 'alerts' so clients always get critical alerts
             self.clients["alerts"].add(sid)
             await self.sio.emit(
@@ -151,7 +151,9 @@ class TradeForgeWebSocket:
             if namespace not in NAMESPACES:
                 await self.sio.emit(
                     "error",
-                    {"message": f"Unknown namespace '{namespace}'. Available: {NAMESPACES}"},
+                    {
+                        "message": f"Unknown namespace '{namespace}'. Available: {NAMESPACES}"
+                    },
                     room=sid,
                 )
                 return
@@ -160,9 +162,9 @@ class TradeForgeWebSocket:
 
             # Store per-client symbol filter (only for market namespace)
             if namespace == "market" and "symbols" in data:
-                await self.sio.save_session(sid, {
-                    "subscribed_symbols": set(data["symbols"])
-                })
+                await self.sio.save_session(
+                    sid, {"subscribed_symbols": set(data["symbols"])}
+                )
 
             await self.sio.emit(
                 "subscribed",
@@ -190,16 +192,16 @@ class TradeForgeWebSocket:
         @self.sio.on("ping_keepalive")
         async def handle_ping(sid: str, data: Dict[str, Any]) -> None:
             """Client keepalive ping — respond with pong."""
-            await self.sio.emit("pong_keepalive", {"server_time": time.time()}, room=sid)
+            await self.sio.emit(
+                "pong_keepalive", {"server_time": time.time()}, room=sid
+            )
 
         @self.sio.on("get_status")
         async def handle_get_status(sid: str, data: Dict[str, Any]) -> None:
             """Return server status to requesting client."""
             status = {
                 "server_time": datetime.utcnow().isoformat(),
-                "namespaces": {
-                    ns: len(subs) for ns, subs in self.clients.items()
-                },
+                "namespaces": {ns: len(subs) for ns, subs in self.clients.items()},
                 "total_connections": self.client_connections_total,
                 "messages_broadcast": self.messages_broadcast,
                 "messages_dropped": self.messages_dropped,

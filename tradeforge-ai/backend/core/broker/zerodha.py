@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -59,7 +58,6 @@ from core.broker.base import (
     PositionData,
     ProductType,
 )
-
 
 # ---------------------------------------------------------------------------
 # Zerodha Kite Connect constants
@@ -135,6 +133,7 @@ _STATUS_MAP = {
 # ---------------------------------------------------------------------------
 # Broker implementation
 # ---------------------------------------------------------------------------
+
 
 class ZerodhaBroker(BaseBroker):
     """Zerodha Kite Connect broker connector.
@@ -242,7 +241,9 @@ class ZerodhaBroker(BaseBroker):
 
             # Update client headers with new token
             client = self._client()
-            client.headers["Authorization"] = f"token {self.api_key}:{self.access_token}"
+            client.headers["Authorization"] = (
+                f"token {self.api_key}:{self.access_token}"
+            )
 
             self._connected = True
             logger.info("Zerodha session generated | user={}", self.user_id)
@@ -450,16 +451,18 @@ class ZerodhaBroker(BaseBroker):
             results = []
             for item in data:
                 status_str = item.get("status", "PENDING")
-                results.append(OrderResult(
-                    order_id=item.get("order_id", ""),
-                    status=_STATUS_MAP.get(status_str, OrderStatus.PENDING),
-                    symbol=item.get("tradingsymbol", ""),
-                    quantity=int(item.get("quantity", 0)),
-                    filled_qty=int(item.get("filled_quantity", 0)),
-                    avg_price=float(item.get("average_price", 0) or 0),
-                    message=item.get("status_message", ""),
-                    broker_raw=item,
-                ))
+                results.append(
+                    OrderResult(
+                        order_id=item.get("order_id", ""),
+                        status=_STATUS_MAP.get(status_str, OrderStatus.PENDING),
+                        symbol=item.get("tradingsymbol", ""),
+                        quantity=int(item.get("quantity", 0)),
+                        filled_qty=int(item.get("filled_quantity", 0)),
+                        avg_price=float(item.get("average_price", 0) or 0),
+                        message=item.get("status_message", ""),
+                        broker_raw=item,
+                    )
+                )
             return results
 
         except Exception as exc:
@@ -483,22 +486,28 @@ class ZerodhaBroker(BaseBroker):
             for pos_list in [day_pos, net_pos]:
                 for item in pos_list:
                     qty = int(item.get("quantity", 0))
-                    positions.append(PositionData(
-                        symbol=item.get("tradingsymbol", ""),
-                        exchange=Exchange(item.get("exchange", "NSE")),
-                        product=ProductType(item.get("product", "MIS").lower()),
-                        quantity=qty,
-                        avg_price=float(item.get("average_price", 0) or item.get("buy_price", 0) or 0),
-                        last_price=float(item.get("last_price", 0) or 0),
-                        pnl=float(item.get("pnl", 0) or 0),
-                        day_pnl=float(item.get("day_buy_value", 0) or 0),
-                        overnight_quantity=int(item.get("overnight_quantity", 0)),
-                        buy_quantity=int(item.get("buy_quantity", 0)),
-                        sell_quantity=int(item.get("sell_quantity", 0)),
-                        buy_price=float(item.get("buy_price", 0) or 0),
-                        sell_price=float(item.get("sell_price", 0) or 0),
-                        broker_raw=item,
-                    ))
+                    positions.append(
+                        PositionData(
+                            symbol=item.get("tradingsymbol", ""),
+                            exchange=Exchange(item.get("exchange", "NSE")),
+                            product=ProductType(item.get("product", "MIS").lower()),
+                            quantity=qty,
+                            avg_price=float(
+                                item.get("average_price", 0)
+                                or item.get("buy_price", 0)
+                                or 0
+                            ),
+                            last_price=float(item.get("last_price", 0) or 0),
+                            pnl=float(item.get("pnl", 0) or 0),
+                            day_pnl=float(item.get("day_buy_value", 0) or 0),
+                            overnight_quantity=int(item.get("overnight_quantity", 0)),
+                            buy_quantity=int(item.get("buy_quantity", 0)),
+                            sell_quantity=int(item.get("sell_quantity", 0)),
+                            buy_price=float(item.get("buy_price", 0) or 0),
+                            sell_price=float(item.get("sell_price", 0) or 0),
+                            broker_raw=item,
+                        )
+                    )
             return positions
 
         except Exception as exc:
@@ -516,16 +525,18 @@ class ZerodhaBroker(BaseBroker):
 
             holdings = []
             for item in data:
-                holdings.append(HoldingData(
-                    symbol=item.get("tradingsymbol", ""),
-                    exchange=Exchange(item.get("exchange", "NSE")),
-                    quantity=int(item.get("quantity", 0)),
-                    avg_price=float(item.get("average_price", 0) or 0),
-                    last_price=float(item.get("last_price", 0) or 0),
-                    pnl=float(item.get("pnl", 0) or 0),
-                    day_change_pct=float(item.get("day_change_percentage", 0) or 0),
-                    broker_raw=item,
-                ))
+                holdings.append(
+                    HoldingData(
+                        symbol=item.get("tradingsymbol", ""),
+                        exchange=Exchange(item.get("exchange", "NSE")),
+                        quantity=int(item.get("quantity", 0)),
+                        avg_price=float(item.get("average_price", 0) or 0),
+                        last_price=float(item.get("last_price", 0) or 0),
+                        pnl=float(item.get("pnl", 0) or 0),
+                        day_change_pct=float(item.get("day_change_percentage", 0) or 0),
+                        broker_raw=item,
+                    )
+                )
             return holdings
 
         except Exception as exc:
@@ -539,12 +550,13 @@ class ZerodhaBroker(BaseBroker):
             data = self._handle_response(response)
 
             equity = data.get("equity", {}) if isinstance(data, dict) else {}
-            commodity = data.get("commodity", {}) if isinstance(data, dict) else {}
 
             return FundsData(
                 available_cash=float(equity.get("available", {}).get("cash", 0) or 0),
                 used_margin=float(equity.get("used", {}).get("debits", 0) or 0),
-                opening_balance=float(equity.get("available", {}).get("opening_balance", 0) or 0),
+                opening_balance=float(
+                    equity.get("available", {}).get("opening_balance", 0) or 0
+                ),
                 payin=float(equity.get("available", {}).get("collateral", 0) or 0),
                 span_margin=float(equity.get("used", {}).get("span", 0) or 0),
                 exposure_margin=float(equity.get("used", {}).get("exposure", 0) or 0),
@@ -609,6 +621,8 @@ class ZerodhaBroker(BaseBroker):
 # Custom exception
 # ---------------------------------------------------------------------------
 
+
 class ZerodhaAPIError(Exception):
     """Raised when the Zerodha API returns an error response."""
+
     pass

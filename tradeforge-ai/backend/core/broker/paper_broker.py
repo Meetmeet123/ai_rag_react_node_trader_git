@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import asyncio
 import random
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from loguru import logger
 
@@ -40,14 +39,15 @@ from core.broker.base import (
     ProductType,
 )
 
-
 # ---------------------------------------------------------------------------
 # Internal position tracking for paper broker
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _PaperPosition:
     """Internal mutable position record."""
+
     symbol: str
     exchange: Exchange
     product: ProductType
@@ -63,6 +63,7 @@ class _PaperPosition:
 # ---------------------------------------------------------------------------
 # Paper Broker
 # ---------------------------------------------------------------------------
+
 
 class PaperBroker(BaseBroker):
     """Paper trading simulator.
@@ -112,7 +113,9 @@ class PaperBroker(BaseBroker):
         self.balance = self._initial_balance
         logger.info(
             "PaperBroker connected | balance={:,.2f} slippage={}% brokerage={}",
-            self.balance, self.slippage_pct, self.brokerage,
+            self.balance,
+            self.slippage_pct,
+            self.brokerage,
         )
         return True
 
@@ -186,7 +189,12 @@ class PaperBroker(BaseBroker):
                 message=f"Insufficient balance: {self.balance:,.2f} < {required_margin + brokerage:,.2f}",
             )
             self.orders[order_id] = result
-            logger.warning("Order rejected (margin): {} {} qty={}", params.symbol, params.side.value, params.quantity)
+            logger.warning(
+                "Order rejected (margin): {} {} qty={}",
+                params.symbol,
+                params.side.value,
+                params.quantity,
+            )
             return result
 
         # Execute
@@ -196,15 +204,17 @@ class PaperBroker(BaseBroker):
             self.used_margin += required_margin
 
         # Record
-        self.trade_history.append({
-            "order_id": order_id,
-            "symbol": params.symbol,
-            "side": params.side.value,
-            "quantity": params.quantity,
-            "price": slipped_price,
-            "brokerage": brokerage,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        self.trade_history.append(
+            {
+                "order_id": order_id,
+                "symbol": params.symbol,
+                "side": params.side.value,
+                "quantity": params.quantity,
+                "price": slipped_price,
+                "brokerage": brokerage,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         result = OrderResult(
             order_id=order_id,
@@ -219,7 +229,11 @@ class PaperBroker(BaseBroker):
 
         logger.debug(
             "Paper fill | {} {} {} @ {:.2f} brokerage={}",
-            params.side.value, params.symbol, params.quantity, slipped_price, brokerage,
+            params.side.value,
+            params.symbol,
+            params.quantity,
+            slipped_price,
+            brokerage,
         )
         return result
 
@@ -311,21 +325,26 @@ class PaperBroker(BaseBroker):
         """Return current virtual positions."""
         result = []
         for sym, pos in self.positions.items():
-            pnl = (pos.last_price - pos.avg_price) * pos.quantity if pos.quantity > 0 else \
-                  (pos.avg_price - pos.last_price) * abs(pos.quantity)
-            result.append(PositionData(
-                symbol=pos.symbol,
-                exchange=pos.exchange,
-                product=pos.product,
-                quantity=pos.quantity,
-                avg_price=pos.avg_price,
-                last_price=pos.last_price,
-                pnl=round(pnl, 2),
-                buy_quantity=pos.buy_qty,
-                sell_quantity=pos.sell_qty,
-                buy_price=pos.buy_price,
-                sell_price=pos.sell_price,
-            ))
+            pnl = (
+                (pos.last_price - pos.avg_price) * pos.quantity
+                if pos.quantity > 0
+                else (pos.avg_price - pos.last_price) * abs(pos.quantity)
+            )
+            result.append(
+                PositionData(
+                    symbol=pos.symbol,
+                    exchange=pos.exchange,
+                    product=pos.product,
+                    quantity=pos.quantity,
+                    avg_price=pos.avg_price,
+                    last_price=pos.last_price,
+                    pnl=round(pnl, 2),
+                    buy_quantity=pos.buy_qty,
+                    sell_quantity=pos.sell_qty,
+                    buy_price=pos.buy_price,
+                    sell_price=pos.sell_price,
+                )
+            )
         return result
 
     async def get_holdings(self) -> List[HoldingData]:
@@ -334,14 +353,16 @@ class PaperBroker(BaseBroker):
         for sym, pos in self.positions.items():
             if pos.product == ProductType.CNC:
                 pnl = (pos.last_price - pos.avg_price) * pos.quantity
-                result.append(HoldingData(
-                    symbol=pos.symbol,
-                    exchange=pos.exchange,
-                    quantity=pos.quantity,
-                    avg_price=pos.avg_price,
-                    last_price=pos.last_price,
-                    pnl=round(pnl, 2),
-                ))
+                result.append(
+                    HoldingData(
+                        symbol=pos.symbol,
+                        exchange=pos.exchange,
+                        quantity=pos.quantity,
+                        avg_price=pos.avg_price,
+                        last_price=pos.last_price,
+                        pnl=round(pnl, 2),
+                    )
+                )
         return result
 
     async def get_funds(self) -> FundsData:
@@ -437,9 +458,9 @@ class PaperBroker(BaseBroker):
     def _margin_pct(self, product: ProductType) -> float:
         """Return margin requirement as a fraction."""
         return {
-            ProductType.MIS: 0.20,   # 5x leverage = 20% margin
+            ProductType.MIS: 0.20,  # 5x leverage = 20% margin
             ProductType.NRML: 1.00,  # Full margin
-            ProductType.CNC: 1.00,   # Full cash
+            ProductType.CNC: 1.00,  # Full cash
         }.get(product, 1.00)
 
     def _update_position(self, params: OrderParams, fill_price: float) -> None:
@@ -481,9 +502,13 @@ class PaperBroker(BaseBroker):
                     del self.positions[symbol]
             else:
                 # Increasing short
-                total_value = abs(pos.avg_price * pos.quantity) + fill_price * params.quantity
+                total_value = (
+                    abs(pos.avg_price * pos.quantity) + fill_price * params.quantity
+                )
                 pos.quantity -= params.quantity
-                pos.avg_price = total_value / abs(pos.quantity) if pos.quantity != 0 else 0
+                pos.avg_price = (
+                    total_value / abs(pos.quantity) if pos.quantity != 0 else 0
+                )
                 pos.sell_qty += params.quantity
                 pos.sell_price = fill_price
 

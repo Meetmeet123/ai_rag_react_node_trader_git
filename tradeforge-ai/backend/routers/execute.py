@@ -40,8 +40,12 @@ class SignalRequest(BaseModel):
     direction: str = Field(..., description="buy or sell")
     quantity: int = Field(..., gt=0, description="Number of shares/lots")
     strategy_id: str = Field(default="", description="Originating strategy ID")
-    confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Model confidence")
-    price: float = Field(default=0.0, ge=0.0, description="Expected price (0 for market)")
+    confidence: float = Field(
+        default=0.8, ge=0.0, le=1.0, description="Model confidence"
+    )
+    price: float = Field(
+        default=0.0, ge=0.0, description="Expected price (0 for market)"
+    )
     order_type: str = Field(default="market", description="market | limit | sl")
     product_type: str = Field(default="mis", description="mis | cnc | nrml")
 
@@ -304,9 +308,7 @@ async def close_all_positions() -> CloseAllResponse:
 
         results = await engine.close_all_positions(reason="kill_switch")
 
-        closed_count = sum(
-            1 for r in results if getattr(r, "is_complete", False)
-        )
+        closed_count = sum(1 for r in results if getattr(r, "is_complete", False))
 
         logger.critical(
             "KILL SWITCH activated — {} positions closed",

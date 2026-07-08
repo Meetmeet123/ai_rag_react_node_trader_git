@@ -12,13 +12,13 @@ import csv
 import io
 from collections import defaultdict
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from loguru import logger
 
 from database.models import Strategy, Trade
@@ -176,7 +176,9 @@ def _compute_kpis(closed: List[Trade]) -> KpiResponse:
     win_rate = len(wins) / total
 
     # Max drawdown from cumulative P&L series sorted by trade date.
-    sorted_trades = sorted(closed, key=lambda t: t.exit_time or t.entry_time or datetime.min)
+    sorted_trades = sorted(
+        closed, key=lambda t: t.exit_time or t.entry_time or datetime.min
+    )
     cumulative = 0.0
     peak = 0.0
     max_dd = 0.0
@@ -263,7 +265,9 @@ def _compute_strategy_performance(
     return items
 
 
-def _trade_to_recent_item(trade: Trade, strategy_names: Dict[str, str]) -> RecentTradeItem:
+def _trade_to_recent_item(
+    trade: Trade, strategy_names: Dict[str, str]
+) -> RecentTradeItem:
     """Convert a Trade document to a dashboard recent-trade item."""
     sid = str(trade.strategy_id) if trade.strategy_id else "unassigned"
     return RecentTradeItem(
@@ -348,30 +352,28 @@ async def get_dashboard(
 ) -> DashboardResponse:
     """Return the full analytics dashboard for the current user (or all trades when unauthenticated)."""
     try:
-        trades = await _build_trade_query(current_user).sort(-Trade.entry_time).to_list()
+        trades = (
+            await _build_trade_query(current_user).sort(-Trade.entry_time).to_list()
+        )
         closed = _closed_trades(trades)
 
         # Strategy name lookup for the groups we need.
-        strategy_ids = {
-            str(t.strategy_id) for t in trades if t.strategy_id
-        } | {
+        strategy_ids = {str(t.strategy_id) for t in trades if t.strategy_id} | {
             str(t.strategy_id) for t in closed if t.strategy_id
         }
         strategies = (
             await Strategy.find(
                 {"_id": {"$in": [PydanticObjectId(sid) for sid in strategy_ids]}}
             ).to_list()
-            if strategy_ids else []
+            if strategy_ids
+            else []
         )
         strategy_names = {str(s.id): s.name for s in strategies}
 
         kpis = _compute_kpis(closed)
         daily_pnl = _compute_daily_pnl(closed)
         strategy_performance = _compute_strategy_performance(closed, strategy_names)
-        recent_trades = [
-            _trade_to_recent_item(t, strategy_names)
-            for t in trades[:10]
-        ]
+        recent_trades = [_trade_to_recent_item(t, strategy_names) for t in trades[:10]]
 
         logger.info(
             "Analytics dashboard served user={} trades={} closed={}",
@@ -413,7 +415,9 @@ async def list_trades(
 ) -> TradeListResponse:
     """Return a paginated list of trades matching the supplied filters."""
     try:
-        query = _build_trade_query(current_user, symbol, strategy_id, from_date, to_date)
+        query = _build_trade_query(
+            current_user, symbol, strategy_id, from_date, to_date
+        )
         total = await query.count()
         trades = await query.sort(-Trade.entry_time).skip(offset).limit(limit).to_list()
 
@@ -422,7 +426,8 @@ async def list_trades(
             await Strategy.find(
                 {"_id": {"$in": [PydanticObjectId(sid) for sid in strategy_ids]}}
             ).to_list()
-            if strategy_ids else []
+            if strategy_ids
+            else []
         )
         strategy_names = {str(s.id): s.name for s in strategies}
 
@@ -455,7 +460,9 @@ async def export_trades(
 ) -> Response:
     """Export trades as a CSV download."""
     try:
-        query = _build_trade_query(current_user, symbol, strategy_id, from_date, to_date)
+        query = _build_trade_query(
+            current_user, symbol, strategy_id, from_date, to_date
+        )
         trades = await query.sort(-Trade.entry_time).to_list()
 
         output = io.StringIO()

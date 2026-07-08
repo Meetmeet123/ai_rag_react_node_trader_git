@@ -96,7 +96,9 @@ def test_get_nifty50(client: TestClient, fake_market_ingestor: None) -> None:
     assert "RELIANCE" in data["constituents"]
 
 
-def test_get_indicators_for_symbol(client: TestClient, fake_market_ingestor: None) -> None:
+def test_get_indicators_for_symbol(
+    client: TestClient, fake_market_ingestor: None
+) -> None:
     response = client.get("/api/v1/market/indicators/RELIANCE?period=30d")
     assert response.status_code == 200
     data = response.json()

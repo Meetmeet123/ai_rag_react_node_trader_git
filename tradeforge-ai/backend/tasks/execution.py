@@ -34,7 +34,6 @@ from database.models import (
     TradeDirection,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -64,17 +63,20 @@ def _latest_condition_value(series: Optional[pd.Series]) -> bool:
 
 async def _has_open_long_position(strategy: Strategy) -> bool:
     """Return True if the latest signal for the strategy is an open BUY."""
-    latest_signals = await Signal.find(
-        {"strategy_id": strategy.id}
-    ).sort([("created_at", -1)]).limit(1).to_list()
+    latest_signals = (
+        await Signal.find({"strategy_id": strategy.id})
+        .sort([("created_at", -1)])
+        .limit(1)
+        .to_list()
+    )
 
     if not latest_signals:
         return False
 
     latest = latest_signals[0]
-    return (
-        latest.direction == TradeDirection.BUY
-        and latest.status in (SignalStatus.PENDING, SignalStatus.EXECUTED)
+    return latest.direction == TradeDirection.BUY and latest.status in (
+        SignalStatus.PENDING,
+        SignalStatus.EXECUTED,
     )
 
 
@@ -89,9 +91,7 @@ async def _process_strategy(strategy: Strategy) -> Dict[str, Any]:
     try:
         timeframe = strategy.timeframe or "1d"
         to_date = datetime.utcnow()
-        from_date = to_date - timedelta(
-            days=_lookback_days_for_timeframe(timeframe)
-        )
+        from_date = to_date - timedelta(days=_lookback_days_for_timeframe(timeframe))
 
         df = await ingestor.fetch_historical(
             symbol,
@@ -167,12 +167,14 @@ async def _process_strategy(strategy: Strategy) -> Dict[str, Any]:
         await broker.connect()
         # Use permissive paper-mode risk settings so signal generation is not
         # blocked by conservative defaults during automated evaluation.
-        risk = RiskManager(config={
-            "daily_loss_limit": 1_000_000,
-            "max_positions": 100,
-            "max_exposure_per_trade_pct": 100,
-            "max_exposure_overall_pct": 100,
-        })
+        risk = RiskManager(
+            config={
+                "daily_loss_limit": 1_000_000,
+                "max_positions": 100,
+                "max_exposure_per_trade_pct": 100,
+                "max_exposure_overall_pct": 100,
+            }
+        )
         engine = ExecutionEngine(broker, risk, mode=ExecutionMode.PAPER)
 
         try:
@@ -230,12 +232,17 @@ async def _process_strategy(strategy: Strategy) -> Dict[str, Any]:
                 pnl = None
             else:
                 # Find the preceding BUY signal that opened the long.
-                buy_signals = await Signal.find(
-                    {
-                        "strategy_id": strategy.id,
-                        "direction": TradeDirection.BUY.value,
-                    }
-                ).sort([("created_at", -1)]).limit(1).to_list()
+                buy_signals = (
+                    await Signal.find(
+                        {
+                            "strategy_id": strategy.id,
+                            "direction": TradeDirection.BUY.value,
+                        }
+                    )
+                    .sort([("created_at", -1)])
+                    .limit(1)
+                    .to_list()
+                )
                 entry_price = (
                     float(buy_signals[0].executed_price)
                     if buy_signals and buy_signals[0].executed_price
@@ -282,14 +289,20 @@ async def _process_strategy(strategy: Strategy) -> Dict[str, Any]:
                         "quantity": trade_doc.quantity,
                         "entry_time": (
                             trade_doc.entry_time.isoformat()
-                            if trade_doc.entry_time else None
+                            if trade_doc.entry_time
+                            else None
                         ),
                         "exit_time": (
                             trade_doc.exit_time.isoformat()
-                            if trade_doc.exit_time else None
+                            if trade_doc.exit_time
+                            else None
                         ),
                         "pnl": trade_doc.pnl,
-                        "status": "closed" if signal_direction == SignalDirection.SELL else "open",
+                        "status": (
+                            "closed"
+                            if signal_direction == SignalDirection.SELL
+                            else "open"
+                        ),
                     }
                     await rag.ingestion.ingest_trade(trade_dict)
             except Exception as exc:

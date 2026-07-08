@@ -18,17 +18,17 @@ is injected into the LLM prompt.
 """
 
 import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from loguru import logger
 from sentence_transformers import CrossEncoder
 
-
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class Reranker:
     """Cross-encoder reranker with diversity, freshness, and source balancing.
@@ -145,10 +145,9 @@ class Reranker:
         for i, doc in enumerate(documents):
             doc["rerank_score"] = ce_scores[i]
             if merge_with_original and "score" in doc:
-                doc["final_score"] = (
-                    (1.0 - original_weight) * ce_scores[i]
-                    + original_weight * doc["score"]
-                )
+                doc["final_score"] = (1.0 - original_weight) * ce_scores[
+                    i
+                ] + original_weight * doc["score"]
             else:
                 doc["final_score"] = ce_scores[i]
 
@@ -222,7 +221,9 @@ class Reranker:
 
         Returns a list of scores in [0, 1] (sigmoid-normalised).
         """
-        pairs = [(query, doc["content"][:2048]) for doc in documents]  # truncate long docs
+        pairs = [
+            (query, doc["content"][:2048]) for doc in documents
+        ]  # truncate long docs
 
         # Predict in batches for efficiency
         raw_scores = self.cross_encoder.predict(
@@ -340,7 +341,13 @@ class Reranker:
         if not isinstance(meta, dict):
             return None
 
-        for key in ("timestamp", "published_at", "created_at", "entry_time", "updated_at"):
+        for key in (
+            "timestamp",
+            "published_at",
+            "created_at",
+            "entry_time",
+            "updated_at",
+        ):
             val = meta.get(key)
             if val is None:
                 continue

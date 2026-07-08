@@ -6,15 +6,13 @@ backtests, model versions, broker configurations, risk settings, and market data
 All models use Beanie ODM on top of Pydantic v2.
 """
 
-
 import enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from beanie import Document, Indexed
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import EmailStr, Field
 from beanie import PydanticObjectId
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -46,16 +44,16 @@ class OrderType(str, enum.Enum):
 
     MARKET = "market"
     LIMIT = "limit"
-    SL = "sl"           # Stop-loss limit
-    SL_M = "sl_m"       # Stop-loss market
+    SL = "sl"  # Stop-loss limit
+    SL_M = "sl_m"  # Stop-loss market
 
 
 class ProductType(str, enum.Enum):
     """Product types for Indian brokerages."""
 
-    MIS = "mis"         # Intraday
-    CNC = "cnc"         # Cash & carry (delivery)
-    NRML = "nrml"       # Normal (overnight positions)
+    MIS = "mis"  # Intraday
+    CNC = "cnc"  # Cash & carry (delivery)
+    NRML = "nrml"  # Normal (overnight positions)
 
 
 class TradeDirection(str, enum.Enum):
@@ -81,7 +79,7 @@ class BrokerName(str, enum.Enum):
     ZERODHA = "zerodha"
     FYERS = "fyers"
     UPSTOX = "upstox"
-    PAPER = "paper"     # Simulated / paper trading
+    PAPER = "paper"  # Simulated / paper trading
 
 
 class ModelVersionStatus(str, enum.Enum):
@@ -163,6 +161,8 @@ class User(TimestampedDocument):
     role: UserRole = UserRole.USER
     is_active: bool = True
     is_approved_for_live: bool = False
+    live_approved_at: Optional[datetime] = None
+    live_approved_by: Optional[PydanticObjectId] = None
     last_login: Optional[datetime] = None
 
     class Settings:
@@ -177,6 +177,7 @@ class Account(TimestampedDocument):
     timezone: str = "Asia/Kolkata"
     language: str = "en"
     notifications_enabled: bool = True
+    live_approval_requested: bool = False
     preferences: Dict[str, Any] = Field(default_factory=dict)
 
     class Settings:
@@ -391,18 +392,25 @@ class ModelVersion(TimestampedDocument):
 class TrainingLog(TimestampedDocument):
     """Auto-training execution log — one row per training run."""
 
-    model_version_id: Optional[PydanticObjectId] = None
-
+    job_id: int = Indexed(unique=True)
     trigger_reason: Optional[str] = Field(
         None, description="scheduled_20min | formula_change | manual"
     )
     status: Optional[str] = Field(
-        None, description="started | completed | failed"
+        None, description="queued | running | completed | failed | cancelled"
     )
 
     data_samples: Optional[int] = None
     epochs: Optional[int] = None
     final_loss: Optional[float] = None
+    validation_loss: Optional[float] = None
+
+    # Registry linkage. ``version_id`` is the integer model registry version.
+    model_version_id: Optional[PydanticObjectId] = None
+    version_id: Optional[int] = None
+    checkpoint_path: Optional[str] = None
+    backtest_metrics: Dict[str, Any] = Field(default_factory=dict)
+    deployed: bool = False
 
     error_message: Optional[str] = None
 
@@ -411,6 +419,22 @@ class TrainingLog(TimestampedDocument):
 
     class Settings:
         name = "training_logs"
+
+
+class TrainingPipelineState(Document):
+    """Singleton state shared between API process and Celery workers."""
+
+    last_training_time: Optional[datetime] = None
+    last_formula_hash: str = ""
+    consecutive_failures: int = 0
+    next_job_id: int = 1
+    is_running: bool = False
+    circuit_breaker_open: bool = False
+    interval_minutes: int = 20
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Settings:
+        name = "training_pipeline_state"
 
 
 class BrokerConfig(TimestampedDocument):

@@ -20,7 +20,9 @@ from config import settings
 
 sio: socketio.AsyncServer = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[origin.strip() for origin in settings.FRONTEND_URL.split(",") if origin.strip()],
+    cors_allowed_origins=[
+        origin.strip() for origin in settings.FRONTEND_URL.split(",") if origin.strip()
+    ],
     logger=False,
     engineio_logger=False,
 )

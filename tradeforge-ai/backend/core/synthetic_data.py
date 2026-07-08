@@ -9,8 +9,7 @@ production deployments should rely on real historical data.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
 import numpy as np
 import pandas as pd

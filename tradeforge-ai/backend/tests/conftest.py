@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
@@ -86,11 +86,17 @@ class _FakeRAGEngine:
         }
 
     def build_rag_prompt(
-        self, template_type: str, query: str, retrieved_context: Dict[str, Any], **_: Any
+        self,
+        template_type: str,
+        query: str,
+        retrieved_context: Dict[str, Any],
+        **_: Any,
     ) -> str:
         return f"[{template_type}] {query}\nContext: {retrieved_context}"
 
-    async def analyze_backtest(self, backtest_results: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze_backtest(
+        self, backtest_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
         self._queries_served += 1
         return {
             "prompt": "RAG backtest analysis prompt",
@@ -137,8 +143,6 @@ def client(mock_rag_service: None) -> TestClient:
 
     with TestClient(app) as test_client:
         yield test_client
-
-
 
 
 @pytest.fixture(scope="session", autouse=True)

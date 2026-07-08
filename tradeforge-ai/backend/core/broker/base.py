@@ -20,54 +20,58 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class OrderSide(str, Enum):
     """Direction of an order."""
+
     BUY = "buy"
     SELL = "sell"
 
 
 class OrderType(str, Enum):
     """Execution type for an order."""
+
     MARKET = "market"
     LIMIT = "limit"
-    SL = "sl"          # Stop-loss (triggers as limit)
-    SL_M = "sl_m"      # Stop-loss market
-    CO = "co"          # Cover order
-    BO = "bo"          # Bracket order
-    AMO = "amo"        # After-market order
+    SL = "sl"  # Stop-loss (triggers as limit)
+    SL_M = "sl_m"  # Stop-loss market
+    CO = "co"  # Cover order
+    BO = "bo"  # Bracket order
+    AMO = "amo"  # After-market order
 
 
 class ProductType(str, Enum):
     """Product / margin type used in Indian brokers."""
-    MIS = "mis"        # Intraday (margin)
-    CNC = "cnc"        # Cash-n-carry (delivery)
-    NRML = "nrml"      # Normal (overnight F&O)
+
+    MIS = "mis"  # Intraday (margin)
+    CNC = "cnc"  # Cash-n-carry (delivery)
+    NRML = "nrml"  # Normal (overnight F&O)
 
 
 class Exchange(str, Enum):
     """Supported Indian exchanges."""
+
     NSE = "NSE"
     BSE = "BSE"
-    NFO = "NFO"        # NSE Futures & Options
-    BFO = "BFO"        # BSE Futures & Options
-    CDS = "CDS"        # Currency Derivatives
-    MCX = "MCX"        # Commodities
+    NFO = "NFO"  # NSE Futures & Options
+    BFO = "BFO"  # BSE Futures & Options
+    CDS = "CDS"  # Currency Derivatives
+    MCX = "MCX"  # Commodities
 
 
 class OrderStatus(str, Enum):
     """Lifecycle status of an order."""
+
     PENDING = "pending"
     OPEN = "open"
     COMPLETE = "complete"
@@ -89,6 +93,7 @@ class OrderStatus(str, Enum):
 
 class Variety(str, Enum):
     """Order variety (used by Zerodha / Angel One)."""
+
     REGULAR = "regular"
     CO = "co"
     BO = "bo"
@@ -99,6 +104,7 @@ class Variety(str, Enum):
 # ---------------------------------------------------------------------------
 # Pydantic models for request / response validation
 # ---------------------------------------------------------------------------
+
 
 class OrderParams(BaseModel):
     """Standardised order parameters accepted by every broker connector.
@@ -188,7 +194,7 @@ class PositionData(BaseModel):
     symbol: str
     exchange: Exchange
     product: ProductType
-    quantity: int = 0          # Positive = long, Negative = short
+    quantity: int = 0  # Positive = long, Negative = short
     avg_price: float = 0.0
     last_price: float = 0.0
     pnl: float = 0.0
@@ -232,6 +238,7 @@ class FundsData(BaseModel):
 # ---------------------------------------------------------------------------
 # Abstract broker interface
 # ---------------------------------------------------------------------------
+
 
 class BaseBroker(ABC):
     """Abstract broker interface that every concrete connector must implement.

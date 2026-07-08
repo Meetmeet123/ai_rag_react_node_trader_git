@@ -22,8 +22,12 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # Application
     # ------------------------------------------------------------------
-    APP_NAME: str = Field(default="TradeForge AI", description="Application display name")
-    DEBUG: bool = Field(default=False, description="Enable debug mode with verbose logging")
+    APP_NAME: str = Field(
+        default="TradeForge AI", description="Application display name"
+    )
+    DEBUG: bool = Field(
+        default=False, description="Enable debug mode with verbose logging"
+    )
     SECRET_KEY: str = Field(description="Secret key for JWT signing and encryption")
     FRONTEND_URL: str = Field(
         default="http://localhost:5173",
@@ -62,47 +66,45 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     LLM_MODEL_NAME: str = Field(
         default="microsoft/DialoGPT-medium",
-        description="Hugging Face model identifier for the trading LLM"
+        description="Hugging Face model identifier for the trading LLM",
     )
     LLM_CHECKPOINT_DIR: str = Field(
         default="./training/checkpoints",
-        description="Directory to store fine-tuned model checkpoints"
+        description="Directory to store fine-tuned model checkpoints",
     )
     LLM_MAX_LENGTH: int = Field(
         default=512,
         ge=1,
         le=4096,
-        description="Maximum token length for LLM generation"
+        description="Maximum token length for LLM generation",
     )
     LLM_TEMPERATURE: float = Field(
         default=0.7,
         ge=0.0,
         le=2.0,
-        description="Sampling temperature for LLM generation"
+        description="Sampling temperature for LLM generation",
     )
 
     # ------------------------------------------------------------------
     # Training
     # ------------------------------------------------------------------
     TRAINING_INTERVAL_MINUTES: int = Field(
-        default=20,
-        ge=1,
-        description="Auto-training interval in minutes"
+        default=20, ge=1, description="Auto-training interval in minutes"
     )
-    BATCH_SIZE: int = Field(
-        default=16,
-        ge=1,
-        description="Training batch size"
-    )
+    BATCH_SIZE: int = Field(default=16, ge=1, description="Training batch size")
     LEARNING_RATE: float = Field(
-        default=2e-5,
-        gt=0.0,
-        description="Optimizer learning rate"
+        default=2e-5, gt=0.0, description="Optimizer learning rate"
     )
-    EPOCHS: int = Field(
-        default=3,
-        ge=1,
-        description="Number of training epochs"
+    EPOCHS: int = Field(default=3, ge=1, description="Number of training epochs")
+    DRIFT_THRESHOLD: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        description="P-value threshold for drift detection",
+    )
+    MODEL_SHADOW_MODE: bool = Field(
+        default=False,
+        description="Register new champions as shadow models before promotion",
     )
 
     # ------------------------------------------------------------------
@@ -111,34 +113,28 @@ class Settings(BaseSettings):
     DEFAULT_CAPITAL: float = Field(
         default=1_000_000.0,
         gt=0.0,
-        description="Default initial capital for backtesting and paper trading"
+        description="Default initial capital for backtesting and paper trading",
     )
     DEFAULT_TIMEFRAME: str = Field(
         default="15m",
-        description="Default candle timeframe (e.g., 1m, 5m, 15m, 1h, 1d)"
+        description="Default candle timeframe (e.g., 1m, 5m, 15m, 1h, 1d)",
     )
     MAX_POSITIONS: int = Field(
-        default=10,
-        ge=1,
-        description="Maximum number of concurrent open positions"
+        default=10, ge=1, description="Maximum number of concurrent open positions"
     )
     MAX_DAILY_LOSS_PCT: float = Field(
         default=2.0,
         ge=0.0,
         le=100.0,
-        description="Maximum daily loss percentage before kill switch"
+        description="Maximum daily loss percentage before kill switch",
     )
 
     # ------------------------------------------------------------------
     # Market Data
     # ------------------------------------------------------------------
-    MARKET_OPEN_TIME: str = Field(
-        default="09:15",
-        description="Market open time (IST)"
-    )
+    MARKET_OPEN_TIME: str = Field(default="09:15", description="Market open time (IST)")
     MARKET_CLOSE_TIME: str = Field(
-        default="15:30",
-        description="Market close time (IST)"
+        default="15:30", description="Market close time (IST)"
     )
 
     # ------------------------------------------------------------------
@@ -164,20 +160,44 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------
+    # MLOps / Experiment Tracking
+    # ------------------------------------------------------------------
+    MLFLOW_TRACKING_URI: str = Field(
+        default="./mlruns",
+        description="MLflow tracking URI (local file store or remote server)",
+    )
+    MLFLOW_EXPERIMENT_NAME: str = Field(
+        default="tradeforge_auto_train",
+        description="MLflow experiment name",
+    )
+
+    # ------------------------------------------------------------------
+    # Artifact Storage (S3-compatible, e.g., MinIO)
+    # ------------------------------------------------------------------
+    ENABLE_S3_ARTIFACTS: bool = Field(
+        default=False, description="Upload model checkpoints to S3/MinIO"
+    )
+    S3_ENDPOINT_URL: Optional[str] = Field(
+        default=None, description="S3-compatible endpoint URL"
+    )
+    S3_ACCESS_KEY: str = Field(default="", description="S3 access key")
+    S3_SECRET_KEY: str = Field(default="", description="S3 secret key")
+    S3_BUCKET: str = Field(
+        default="tradeforge-models", description="S3 bucket for model artifacts"
+    )
+
+    # ------------------------------------------------------------------
     # Paths
     # ------------------------------------------------------------------
     DATA_DIR: str = Field(default="./data", description="Base data directory")
     HISTORICAL_DATA_DIR: str = Field(
-        default="./data/historical",
-        description="Historical OHLCV data storage"
+        default="./data/historical", description="Historical OHLCV data storage"
     )
     STRATEGIES_DIR: str = Field(
-        default="./strategies",
-        description="User-defined strategy storage"
+        default="./strategies", description="User-defined strategy storage"
     )
     MODELS_DIR: str = Field(
-        default="./models",
-        description="Serialized model artefacts"
+        default="./models", description="Serialized model artefacts"
     )
 
     model_config = ConfigDict(

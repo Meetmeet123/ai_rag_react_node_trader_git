@@ -16,10 +16,8 @@ from __future__ import annotations
 
 import keyword
 import re
-import textwrap
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
@@ -144,8 +142,7 @@ class IndicatorRef(BaseModel):
     name: IndicatorName
     params: List[IndicatorParam] = Field(default_factory=list)
     output_column: str = Field(
-        default="",
-        description="Column alias when indicator returns multiple outputs"
+        default="", description="Column alias when indicator returns multiple outputs"
     )
 
     def column_name(self) -> str:
@@ -174,9 +171,7 @@ class ConditionGroup(BaseModel):
     """Grouped conditions with a logical operator."""
 
     operator: str = Field(
-        default="AND",
-        pattern="^(AND|OR)$",
-        description="Logical combiner: AND or OR"
+        default="AND", pattern="^(AND|OR)$", description="Logical combiner: AND or OR"
     )
     conditions: List[Condition] = Field(default_factory=list)
 
@@ -215,12 +210,8 @@ class StrategyTemplate(BaseModel):
     timeframe: str = Field(default="15m")
 
     indicators: List[IndicatorRef] = Field(default_factory=list)
-    entry_conditions: ConditionGroup = Field(
-        default_factory=lambda: ConditionGroup()
-    )
-    exit_conditions: ConditionGroup = Field(
-        default_factory=lambda: ConditionGroup()
-    )
+    entry_conditions: ConditionGroup = Field(default_factory=lambda: ConditionGroup())
+    exit_conditions: ConditionGroup = Field(default_factory=lambda: ConditionGroup())
     risk: RiskParams = Field(default_factory=RiskParams)
 
     @field_validator("name")
@@ -265,9 +256,7 @@ class NLParser:
     _SL_PCT_RE = re.compile(
         r"stop\s*loss\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*%", re.IGNORECASE
     )
-    _TG_PCT_RE = re.compile(
-        r"target\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*%", re.IGNORECASE
-    )
+    _TG_PCT_RE = re.compile(r"target\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*%", re.IGNORECASE)
     _SL_ATR_RE = re.compile(
         r"stop\s*loss\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:x\s*)?atr",
         re.IGNORECASE,
@@ -317,17 +306,13 @@ class NLParser:
         indicators = self._extract_indicators(prompt_lower)
 
         # 5. Build entry conditions from detected indicators + comparisons.
-        entry_conditions = self._build_conditions(
-            prompt_lower, indicators, direction
-        )
+        entry_conditions = self._build_conditions(prompt_lower, indicators, direction)
 
         # 6. Extract risk parameters.
         risk = self._extract_risk_params(prompt_lower)
 
         # 7. Infer exit conditions (opposite direction or target hit).
-        exit_conditions = self._infer_exit_conditions(
-            entry_conditions, risk, direction
-        )
+        exit_conditions = self._infer_exit_conditions(entry_conditions, risk, direction)
 
         # 8. Derive strategy name.
         name = self._derive_name(prompt_lower, instrument, direction)
@@ -361,9 +346,21 @@ class NLParser:
         """Extract instrument / symbol from the prompt."""
         # Common Indian market instruments.
         known = [
-            "nifty", "nifty50", "banknifty", "sensex", "finnifty",
-            "reliance", "tcs", "infy", "hdfcbank", "icicibank",
-            "sbilife", "lt", "itc", "hul", "bhartiartl",
+            "nifty",
+            "nifty50",
+            "banknifty",
+            "sensex",
+            "finnifty",
+            "reliance",
+            "tcs",
+            "infy",
+            "hdfcbank",
+            "icicibank",
+            "sbilife",
+            "lt",
+            "itc",
+            "hul",
+            "bhartiartl",
         ]
         for sym in known:
             if sym in prompt.replace(" ", "").replace("&", "").lower():
@@ -384,10 +381,15 @@ class NLParser:
         if m:
             num, unit = m.group(1), m.group(2).lower()
             unit_map = {
-                "min": "m", "minute": "m", "m": "m",
-                "hour": "h", "h": "h",
-                "day": "d", "d": "d",
-                "week": "wk", "wk": "wk",
+                "min": "m",
+                "minute": "m",
+                "m": "m",
+                "hour": "h",
+                "h": "h",
+                "day": "d",
+                "d": "d",
+                "week": "wk",
+                "wk": "wk",
             }
             return f"{num}{unit_map.get(unit, unit)}"
         return "15m"
@@ -431,11 +433,15 @@ class NLParser:
                     idx = prompt.find(alias)
                     break
 
-        context = prompt[max(0, idx - 30): idx + 60] if idx >= 0 else prompt
+        context = prompt[max(0, idx - 30) : idx + 60] if idx >= 0 else prompt
 
         if indicator in {
-            IndicatorName.RSI, IndicatorName.ATR, IndicatorName.CCI,
-            IndicatorName.MFI, IndicatorName.STOCHASTIC, IndicatorName.ADX,
+            IndicatorName.RSI,
+            IndicatorName.ATR,
+            IndicatorName.CCI,
+            IndicatorName.MFI,
+            IndicatorName.STOCHASTIC,
+            IndicatorName.ADX,
         }:
             m = self._PERIOD_RE.search(context)
             period = int(m.group(1)) if m else 14
@@ -496,16 +502,10 @@ class NLParser:
         if not conditions and len(indicators) >= 1:
             col = indicators[0].column_name()
             if direction == "buy":
-                conditions.append(
-                    Condition(left=col, op=ComparisonOp.LT, right="30")
-                )
+                conditions.append(Condition(left=col, op=ComparisonOp.LT, right="30"))
             else:
-                conditions.append(
-                    Condition(left=col, op=ComparisonOp.GT, right="70")
-                )
-            logger.debug(
-                f"No explicit conditions — using fallback {col} threshold"
-            )
+                conditions.append(Condition(left=col, op=ComparisonOp.GT, right="70"))
+            logger.debug(f"No explicit conditions — using fallback {col} threshold")
 
         return ConditionGroup(operator="AND", conditions=conditions)
 
@@ -594,12 +594,16 @@ class NLParser:
                 tg_type = TargetType.ATR_BASED
 
         # Position sizing — detect "X% capital" or "X shares"
-        ps_pct = re.search(r"(\d+(?:\.\d+)?)\s*%\s+(?:of\s+)?capital", prompt, re.IGNORECASE)
+        ps_pct = re.search(
+            r"(\d+(?:\.\d+)?)\s*%\s+(?:of\s+)?capital", prompt, re.IGNORECASE
+        )
         if ps_pct:
             ps_type = PositionSizingType.PCT_CAPITAL
             ps_val = float(ps_pct.group(1))
         else:
-            ps_qty = re.search(r"(\d+)\s*(?:shares|qty|quantity|lots)", prompt, re.IGNORECASE)
+            ps_qty = re.search(
+                r"(\d+)\s*(?:shares|qty|quantity|lots)", prompt, re.IGNORECASE
+            )
             if ps_qty:
                 ps_val = float(ps_qty.group(1))
 
@@ -631,9 +635,7 @@ class NLParser:
                 ComparisonOp.EQ: ComparisonOp.NEQ,
                 ComparisonOp.NEQ: ComparisonOp.EQ,
             }.get(ec.op, ComparisonOp.EQ)
-            conditions.append(
-                Condition(left=ec.left, op=inverted_op, right=ec.right)
-            )
+            conditions.append(Condition(left=ec.left, op=inverted_op, right=ec.right))
 
         return ConditionGroup(operator="OR", conditions=conditions)
 
@@ -748,7 +750,11 @@ class StrategyValidator:
             seen_names.add(col)
 
             # Check RSI/MFI bounds.
-            if ind.name in {IndicatorName.RSI, IndicatorName.MFI, IndicatorName.WILLIAMS_R}:
+            if ind.name in {
+                IndicatorName.RSI,
+                IndicatorName.MFI,
+                IndicatorName.WILLIAMS_R,
+            }:
                 for p in ind.params:
                     if p.name == "period" and isinstance(p.value, (int, float)):
                         if p.value < 2 or p.value > 100:
@@ -760,9 +766,7 @@ class StrategyValidator:
             if ind.name == IndicatorName.MACD:
                 params = {p.name: p.value for p in ind.params}
                 if params.get("fast", 12) >= params.get("slow", 26):
-                    result.add_error(
-                        "MACD fast period must be less than slow period"
-                    )
+                    result.add_error("MACD fast period must be less than slow period")
 
     def _validate_conditions(
         self, template: StrategyTemplate, result: ValidationResult
@@ -771,8 +775,7 @@ class StrategyValidator:
         declared = {ind.column_name() for ind in template.indicators}
 
         all_conditions = (
-            template.entry_conditions.conditions
-            + template.exit_conditions.conditions
+            template.entry_conditions.conditions + template.exit_conditions.conditions
         )
 
         if not all_conditions:
@@ -817,9 +820,7 @@ class StrategyValidator:
             )
 
         if risk.stop_loss_value > 10 and risk.stop_loss_type == StopLossType.FIXED_PCT:
-            result.add_warning(
-                f"Stop loss of {risk.stop_loss_value}% is very wide"
-            )
+            result.add_warning(f"Stop loss of {risk.stop_loss_value}% is very wide")
 
     def _validate_sanity(
         self, template: StrategyTemplate, result: ValidationResult
@@ -908,25 +909,25 @@ class CodeGenerator:
         lines.append("")
 
         # Imports
-        lines.extend([
-            "from __future__ import annotations",
-            "",
-            "from typing import Optional",
-            "",
-            "import numpy as np",
-            "import pandas as pd",
-            "from loguru import logger",
-            "",
-            "from core import indicators as ind",
-            "",
-            "",
-        ])
+        lines.extend(
+            [
+                "from __future__ import annotations",
+                "",
+                "from typing import Optional",
+                "",
+                "import numpy as np",
+                "import pandas as pd",
+                "from loguru import logger",
+                "",
+                "from core import indicators as ind",
+                "",
+                "",
+            ]
+        )
 
         # Strategy class
         lines.append(f"class {self._to_class_name(template.name)}Strategy:")
-        lines.append(
-            f'    """{template.description or template.name}"""'
-        )
+        lines.append(f'    """{template.description or template.name}"""')
         lines.append("")
 
         # Class constants
@@ -935,14 +936,18 @@ class CodeGenerator:
         lines.append("")
 
         # __init__
-        lines.extend([
-            "    def __init__(self) -> None:",
-            "        pass",
-            "",
-        ])
+        lines.extend(
+            [
+                "    def __init__(self) -> None:",
+                "        pass",
+                "",
+            ]
+        )
 
         # calculate_indicators
-        lines.append("    def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:")
+        lines.append(
+            "    def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:"
+        )
         lines.append('        """Add all strategy-specific indicator columns."""')
         lines.append("        result = df.copy()")
         lines.append("")
@@ -955,7 +960,9 @@ class CodeGenerator:
         lines.append("")
 
         # generate_signals
-        lines.append("    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:")
+        lines.append(
+            "    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:"
+        )
         lines.append('        """')
         lines.append("        Returns a DataFrame with ``signal`` column:")
         lines.append("        1 = entry, -1 = exit, 0 = hold.")
@@ -980,7 +987,9 @@ class CodeGenerator:
 
         lines.append("        df = df.copy()")
         lines.append("        df['signal'] = signals")
-        lines.append("        logger.debug(f'Signals generated: {(signals != 0).sum()} events')")
+        lines.append(
+            "        logger.debug(f'Signals generated: {(signals != 0).sum()} events')"
+        )
         lines.append("        return df")
         lines.append("")
 
@@ -1057,7 +1066,9 @@ class CodeGenerator:
             lines.append(
                 f"        risk_amount = capital * {risk.position_sizing_value / 100.0}"
             )
-            lines.append("        qty = int(risk_amount / risk_per_share) if risk_per_share > 0 else 1")
+            lines.append(
+                "        qty = int(risk_amount / risk_per_share) if risk_per_share > 0 else 1"
+            )
             lines.append("        return max(qty, 1)")
 
         lines.append("")
@@ -1077,17 +1088,15 @@ class CodeGenerator:
         lines.append('        """Compute stop-loss price for a trade."""')
 
         if risk.stop_loss_type == StopLossType.FIXED_PCT:
-            lines.append(
-                f"        sl_pct = {risk.stop_loss_value / 100.0}"
-            )
+            lines.append(f"        sl_pct = {risk.stop_loss_value / 100.0}")
             lines.append("        if direction == 'buy':")
             lines.append("            return entry_price * (1 - sl_pct)")
             lines.append("        return entry_price * (1 + sl_pct)")
         elif risk.stop_loss_type == StopLossType.ATR_BASED:
+            lines.append(f"        multiplier = {risk.stop_loss_value}")
             lines.append(
-                f"        multiplier = {risk.stop_loss_value}"
+                "        atr_v = atr_value if atr_value is not None else entry_price * 0.01"
             )
-            lines.append("        atr_v = atr_value if atr_value is not None else entry_price * 0.01")
             lines.append("        if direction == 'buy':")
             lines.append("            return entry_price - multiplier * atr_v")
             lines.append("        return entry_price + multiplier * atr_v")
@@ -1109,17 +1118,15 @@ class CodeGenerator:
         lines.append('        """Compute target price for a trade."""')
 
         if risk.target_type == TargetType.FIXED_PCT:
-            lines.append(
-                f"        tgt_pct = {risk.target_value / 100.0}"
-            )
+            lines.append(f"        tgt_pct = {risk.target_value / 100.0}")
             lines.append("        if direction == 'buy':")
             lines.append("            return entry_price * (1 + tgt_pct)")
             lines.append("        return entry_price * (1 - tgt_pct)")
         elif risk.target_type == TargetType.ATR_BASED:
+            lines.append(f"        multiplier = {risk.target_value}")
             lines.append(
-                f"        multiplier = {risk.target_value}"
+                "        atr_v = atr_value if atr_value is not None else entry_price * 0.01"
             )
-            lines.append("        atr_v = atr_value if atr_value is not None else entry_price * 0.01")
             lines.append("        if direction == 'buy':")
             lines.append("            return entry_price + multiplier * atr_v")
             lines.append("        return entry_price - multiplier * atr_v")

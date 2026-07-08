@@ -14,6 +14,26 @@ jobs:
       run:
         working-directory: ./tradeforge-ai/backend
 
+    services:
+      mongo:
+        image: mongo:7-jammy
+        ports:
+          - "27017:27017"
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,8 +49,41 @@ jobs:
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
 
+      - name: Lint backend
+        run: |
+          .venv/bin/ruff check .
+          .venv/bin/black --check .
+
+      - name: Type check backend
+        run: |
+          if .venv/bin/pip show mypy >/dev/null 2>&1; then
+            .venv/bin/mypy .
+          else
+            echo "mypy not installed; skipping type check."
+          fi
+
+      - name: Dependency vulnerability scan
+        run: |
+          .venv/bin/pip install --quiet pip-audit || true
+          if .venv/bin/pip show pip-audit >/dev/null 2>&1; then
+            .venv/bin/pip-audit
+          else
+            echo "pip-audit installation failed; skipping dependency scan."
+          fi
+
       - name: Run backend tests
+        env:
+          MONGODB_URI: mongodb://localhost:27017/tradeforge_test
+          CELERY_BROKER_URL: redis://localhost:6379/1
+          CELERY_RESULT_BACKEND: redis://localhost:6379/1
         run: .venv/bin/python -m pytest -q
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./tradeforge-ai/backend
+          push: false
+          tags: tradeforge-backend:test
 
   frontend:
     name: Frontend Build & Test
@@ -53,8 +106,24 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Lint frontend
+        run: npm run lint -- --max-warnings=0
+
+      - name: Type check frontend
+        run: npx tsc --noEmit
+
+      - name: Dependency vulnerability scan
+        run: npm audit --audit-level=moderate
+
       - name: Build frontend
         run: npm run build
 
       - name: Run frontend tests
         run: npm run test
+
+      - name: Build frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./tradeforge-ai/frontend
+          push: false
+          tags: tradeforge-frontend:test

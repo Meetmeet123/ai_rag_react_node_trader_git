@@ -133,7 +133,9 @@ async def test_admin_can_list_audit_logs(client: TestClient) -> None:
     token = await _login(client, username)
 
     # Generate an auditable event.
-    client.post("/api/v1/strategies/", json={"name": "Admin Log Strategy", "instrument": "TCS"})
+    client.post(
+        "/api/v1/strategies/", json={"name": "Admin Log Strategy", "instrument": "TCS"}
+    )
     await asyncio.sleep(0.2)
 
     response = client.get(
@@ -151,7 +153,9 @@ async def test_admin_can_list_audit_logs(client: TestClient) -> None:
 async def test_non_admin_cannot_list_audit_logs(client: TestClient) -> None:
     """Non-admin users receive a 403 when accessing audit logs."""
     suffix = uuid.uuid4().hex[:8]
-    await _register_user(client, f"normaluser_{suffix}@test.com", f"normaluser_{suffix}")
+    await _register_user(
+        client, f"normaluser_{suffix}@test.com", f"normaluser_{suffix}"
+    )
     token = await _login(client, f"normaluser_{suffix}")
 
     response = client.get(

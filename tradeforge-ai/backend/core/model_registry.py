@@ -32,7 +32,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -40,10 +39,10 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Data class for version metadata
 # ---------------------------------------------------------------------------
+
 
 class ModelVersionInfo:
     """Mutable container for model-version metadata.
@@ -65,8 +64,11 @@ class ModelVersionInfo:
         backtest_pnl: P&L returned by backtest (INR or % depending on config).
         status: One of ``training``, ``ready``, ``active``, ``archived``, ``failed``.
         is_active: Convenience flag — ``True`` iff this version is the active model.
+        is_shadow: Whether this version is running in shadow/challenger mode.
         triggered_by: What triggered training — ``scheduled_20min``, ``formula_change``, ``manual``.
         formula_snapshot: Dict snapshot of strategy formulas at training time.
+        reference_distributions: Reference feature distributions used for drift detection.
+        artifact_uri: URI of the uploaded artifact (e.g., s3://bucket/key).
         created_at: When the version record was created.
         completed_at: When training finished (``None`` until then).
     """
@@ -89,8 +91,11 @@ class ModelVersionInfo:
         backtest_pnl: float = 0.0,
         status: str = "training",
         is_active: bool = False,
+        is_shadow: bool = False,
         triggered_by: str = "scheduled_20min",
         formula_snapshot: Optional[Dict[str, Any]] = None,
+        reference_distributions: Optional[Dict[str, List[float]]] = None,
+        artifact_uri: Optional[str] = None,
         created_at: Optional[datetime] = None,
         completed_at: Optional[datetime] = None,
     ) -> None:
@@ -110,8 +115,11 @@ class ModelVersionInfo:
         self.backtest_pnl = backtest_pnl
         self.status = status
         self.is_active = is_active
+        self.is_shadow = is_shadow
         self.triggered_by = triggered_by
         self.formula_snapshot = formula_snapshot or {}
+        self.reference_distributions = reference_distributions or {}
+        self.artifact_uri = artifact_uri
         self.created_at = created_at or datetime.utcnow()
         self.completed_at = completed_at
 
@@ -136,10 +144,15 @@ class ModelVersionInfo:
             "backtest_pnl": self.backtest_pnl,
             "status": self.status,
             "is_active": self.is_active,
+            "is_shadow": self.is_shadow,
             "triggered_by": self.triggered_by,
             "formula_snapshot": self.formula_snapshot,
+            "reference_distributions": self.reference_distributions,
+            "artifact_uri": self.artifact_uri,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
         }
 
     @classmethod
@@ -150,7 +163,9 @@ class ModelVersionInfo:
             val = data.get(key)
             if isinstance(val, str):
                 data[key] = datetime.fromisoformat(val)
-        return cls(**{k: v for k, v in data.items() if k in cls.__init__.__code__.co_varnames})
+        return cls(
+            **{k: v for k, v in data.items() if k in cls.__init__.__code__.co_varnames}
+        )
 
     def __repr__(self) -> str:
         return (
@@ -162,6 +177,7 @@ class ModelVersionInfo:
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
+
 
 class ModelRegistry:
     """Central registry for all model versions.
@@ -188,6 +204,7 @@ class ModelRegistry:
         # In-memory store: version_id -> ModelVersionInfo
         self.versions: Dict[int, ModelVersionInfo] = {}
         self.active_version_id: Optional[int] = None
+        self.shadow_version_id: Optional[int] = None
 
         # Concurrency control
         self._lock = asyncio.Lock()  # type: ignore[var-annotated]
@@ -263,8 +280,11 @@ class ModelRegistry:
 
         # Activate new
         target.is_active = True
+        target.is_shadow = False
         target.status = "active"
         self.active_version_id = version_id
+        if self.shadow_version_id == version_id:
+            self.shadow_version_id = None
         self._save_registry()
         logger.info(f"Activated model version {version_id} — {target.version_name!r}")
         return True
@@ -363,7 +383,8 @@ class ModelRegistry:
             ``True`` if a previous version was found and activated.
         """
         candidates = [
-            v for v in self.versions.values()
+            v
+            for v in self.versions.values()
             if v.version_id != self.active_version_id
             and v.status not in ("archived", "failed")
         ]
@@ -437,6 +458,59 @@ class ModelRegistry:
     # Metrics
     # ------------------------------------------------------------------
 
+    def set_shadow_version(self, version_id: int) -> bool:
+        """Mark a version as the shadow/challenger model.
+
+        The shadow version runs alongside the active model for comparison
+        without affecting live decisions until promoted.
+
+        Args:
+            version_id: ID of the version to set as shadow.
+
+        Returns:
+            ``True`` on success, ``False`` if version not found or archived/failed.
+        """
+        if version_id not in self.versions:
+            logger.error(f"Cannot set shadow unknown version {version_id}")
+            return False
+
+        target = self.versions[version_id]
+        if target.status in ("archived", "failed"):
+            logger.error(
+                f"Cannot set shadow version {version_id} — status is {target.status}"
+            )
+            return False
+
+        # Clear shadow flag from previous shadow
+        if self.shadow_version_id is not None:
+            prev = self.versions.get(self.shadow_version_id)
+            if prev is not None:
+                prev.is_shadow = False
+
+        target.is_shadow = True
+        self.shadow_version_id = version_id
+        self._save_registry()
+        logger.info(f"Set shadow model version {version_id} — {target.version_name!r}")
+        return True
+
+    def get_shadow_version(self) -> Optional[ModelVersionInfo]:
+        """Get the current shadow/challenger version, or ``None``."""
+        if self.shadow_version_id is None:
+            return None
+        return self.versions.get(self.shadow_version_id)
+
+    def promote_shadow_to_active(self) -> bool:
+        """Promote the current shadow version to active.
+
+        Returns:
+            ``True`` if a shadow version existed and was activated.
+        """
+        shadow = self.get_shadow_version()
+        if shadow is None:
+            logger.warning("Promote shadow failed — no shadow version set")
+            return False
+        return self.activate_version(shadow.version_id)
+
     def update_performance(self, version_id: int, metrics: Dict[str, float]) -> None:
         """Update performance metrics for a version (e.g., from live trading).
 
@@ -467,6 +541,7 @@ class ModelRegistry:
         """Flush in-memory version store to ``registry.json``."""
         payload = {
             "active_version_id": self.active_version_id,
+            "shadow_version_id": self.shadow_version_id,
             "versions": {vid: v.to_dict() for vid, v in self.versions.items()},
             "saved_at": datetime.utcnow().isoformat(),
         }
@@ -486,6 +561,7 @@ class ModelRegistry:
             with open(path, "r", encoding="utf-8") as fh:
                 payload = json.load(fh)
             self.active_version_id = payload.get("active_version_id")
+            self.shadow_version_id = payload.get("shadow_version_id")
             raw_versions = payload.get("versions", {})
             self.versions = {
                 int(vid): ModelVersionInfo.from_dict(vdict)
@@ -528,6 +604,7 @@ class ModelRegistry:
 # ---------------------------------------------------------------------------
 # Convenience helpers
 # ---------------------------------------------------------------------------
+
 
 def compute_formula_hash(formula_dict: Dict[str, Any]) -> str:
     """Compute a SHA-256 hash of a formula dictionary.

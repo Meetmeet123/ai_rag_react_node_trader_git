@@ -58,6 +58,7 @@ export default function Login() {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
               <input
+                data-testid="login-email"
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -75,6 +76,7 @@ export default function Login() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
               <input
+                data-testid="login-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -93,6 +95,7 @@ export default function Login() {
           </div>
 
           <button
+            data-testid="login-submit"
             type="submit"
             disabled={isSubmitting}
             className="w-full h-10 bg-[#22D3EE] text-[#030305] text-[14px] font-semibold rounded-[6px] hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"

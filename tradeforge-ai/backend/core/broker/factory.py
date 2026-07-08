@@ -9,7 +9,6 @@ execution engine never crashes on configuration mismatches.
 
 from __future__ import annotations
 
-from typing import Optional
 
 from loguru import logger
 
@@ -53,7 +52,9 @@ def create_broker_from_config(config: BrokerConfig) -> BaseBroker:
         BrokerName.FYERS,
     ):
         logger.warning("Broker '{}' is not implemented yet", broker_name.value)
-        raise NotImplementedError(f"Broker '{broker_name.value}' is not implemented yet")
+        raise NotImplementedError(
+            f"Broker '{broker_name.value}' is not implemented yet"
+        )
 
     logger.warning("Unknown broker '{}', falling back to paper broker", broker_name)
     return PaperBroker()

@@ -25,8 +25,10 @@ import json
 import os
 import time
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from datasets import Dataset
 
 from loguru import logger
 
@@ -160,9 +162,9 @@ class TradingLLMTrainer:
 
     # Default LoRA target modules for DialoGPT / GPT-2 style models
     _DEFAULT_LORA_TARGETS: List[str] = [
-        "c_attn",   # Self-attention projection (GPT-2)
-        "c_proj",   # Output projection
-        "c_fc",     # Feed-forward intermediate
+        "c_attn",  # Self-attention projection (GPT-2)
+        "c_proj",  # Output projection
+        "c_fc",  # Feed-forward intermediate
     ]
 
     # Alternative target modules for other model families
@@ -170,7 +172,15 @@ class TradingLLMTrainer:
         "gpt2": ["c_attn", "c_proj", "c_fc"],
         "gpt_neo": ["q_proj", "v_proj", "k_proj", "out_proj"],
         "gpt_neox": ["query_key_value", "dense"],
-        "llama": ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        "llama": [
+            "q_proj",
+            "v_proj",
+            "k_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
         "opt": ["q_proj", "v_proj", "k_proj", "out_proj"],
     }
 
@@ -278,6 +288,7 @@ class TradingLLMTrainer:
         # Quantisation
         if self.quantization == "4bit":
             from transformers import BitsAndBytesConfig
+
             model_kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=_torch.float16,
@@ -336,7 +347,9 @@ class TradingLLMTrainer:
         model_name_lower = model_name.lower()
         for family, targets in self._LORA_TARGET_MAP.items():
             if family in model_name_lower:
-                logger.info(f"Detected model family '{family}' — using targets: {targets}")
+                logger.info(
+                    f"Detected model family '{family}' — using targets: {targets}"
+                )
                 return targets
 
         logger.info(f"Using default LoRA targets: {self._DEFAULT_LORA_TARGETS}")
@@ -462,7 +475,9 @@ class TradingLLMTrainer:
             load_best_model_at_end=eval_dataset is not None,
             metric_for_best_model="eval_loss" if eval_dataset is not None else None,
             greater_is_better=False,
-            bf16=self.bf16 and _torch.cuda.is_available() and _torch.cuda.is_bf16_supported(),
+            bf16=self.bf16
+            and _torch.cuda.is_available()
+            and _torch.cuda.is_bf16_supported(),
             fp16=self.fp16 and _torch.cuda.is_available() and not self.bf16,
             gradient_checkpointing=self.gradient_checkpointing,
             report_to=["tensorboard"],
@@ -498,13 +513,15 @@ class TradingLLMTrainer:
             metrics = train_result.metrics
 
             # Record history
-            self._training_history.append({
-                "run_id": run_id,
-                "duration_sec": train_duration,
-                "metrics": metrics,
-                "run_dir": run_dir,
-                "config": self._get_config_dict(),
-            })
+            self._training_history.append(
+                {
+                    "run_id": run_id,
+                    "duration_sec": train_duration,
+                    "metrics": metrics,
+                    "run_dir": run_dir,
+                    "config": self._get_config_dict(),
+                }
+            )
 
             logger.info(
                 f"Training complete in {train_duration:.1f}s — "
@@ -662,10 +679,14 @@ class TradingLLMTrainer:
         # Activations + gradients (rough)
         activation_gb = model_size_gb * 0.5
 
-        total_training_gb = model_size_gb + lora_overhead_gb + optimizer_gb + activation_gb
+        total_training_gb = (
+            model_size_gb + lora_overhead_gb + optimizer_gb + activation_gb
+        )
 
         estimates["model_weights"] = f"{model_size_gb:.2f} GB"
-        estimates["lora_overhead"] = f"{lora_overhead_gb:.2f} GB ({lora_pct:.2f}% extra params)"
+        estimates["lora_overhead"] = (
+            f"{lora_overhead_gb:.2f} GB ({lora_pct:.2f}% extra params)"
+        )
         estimates["optimizer_states"] = f"{optimizer_gb:.2f} GB"
         estimates["activations_gradients"] = f"{activation_gb:.2f} GB"
         estimates["total_training"] = f"{total_training_gb:.2f} GB"
@@ -688,7 +709,9 @@ class TradingLLMTrainer:
             return {"error": "Model not prepared"}
 
         total = sum(p.numel() for p in self.peft_model.parameters())
-        trainable = sum(p.numel() for p in self.peft_model.parameters() if p.requires_grad)
+        trainable = sum(
+            p.numel() for p in self.peft_model.parameters() if p.requires_grad
+        )
         frozen = total - trainable
 
         return {
@@ -839,13 +862,16 @@ class CheckpointManager:
         removed: List[str] = []
         for ckpt in to_remove:
             import shutil
+
             shutil.rmtree(ckpt["path"], ignore_errors=True)
             removed.append(ckpt["path"])
             logger.info(f"Pruned checkpoint: {ckpt['path']}")
 
         return removed
 
-    def get_best_checkpoint(self, metric: str = "eval_loss") -> Optional[Dict[str, Any]]:
+    def get_best_checkpoint(
+        self, metric: str = "eval_loss"
+    ) -> Optional[Dict[str, Any]]:
         """
         Find the checkpoint with the best validation metric.
 
@@ -921,7 +947,7 @@ def create_trainer_with_defaults(
 
     # Auto-detect GPU memory and adjust settings
     if _torch.cuda.is_available():
-        gpu_mem_gb = _torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+        gpu_mem_gb = _torch.cuda.get_device_properties(0).total_memory / (1024**3)
         logger.info(f"Detected GPU with {gpu_mem_gb:.1f} GB VRAM")
 
         if gpu_mem_gb < 6:

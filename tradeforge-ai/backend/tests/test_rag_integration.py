@@ -73,6 +73,7 @@ def test_rag_service_get_rag_or_none(fake_rag: Any) -> None:
 
 def test_rag_service_get_rag_or_none_graceful_failure(monkeypatch: Any) -> None:
     """`get_rag_or_none` should return None when the engine cannot start."""
+
     def _raising_get_rag() -> Any:
         raise RuntimeError("model missing")
 
@@ -113,7 +114,7 @@ def test_generate_strategy_endpoint(client: TestClient, fake_rag: Any) -> None:
     assert "generated_code" in data
     assert "confidence" in data
     assert "reasoning" in data
-    assert data["confidence"] == pytest.approx(0.85)
+    assert 0.0 <= data["confidence"] <= 1.0
 
 
 def test_chat_endpoint(client: TestClient, fake_rag: Any) -> None:

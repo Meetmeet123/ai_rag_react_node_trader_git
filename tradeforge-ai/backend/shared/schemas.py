@@ -13,13 +13,14 @@ from typing import Dict, List, Optional, Any
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-
 # ---------------------------------------------------------------------------
 # Market Data Schemas
 # ---------------------------------------------------------------------------
 
+
 class TimeFrame(str, Enum):
     """Supported candle timeframes."""
+
     MINUTE_1 = "1m"
     MINUTE_5 = "5m"
     MINUTE_15 = "15m"
@@ -29,6 +30,7 @@ class TimeFrame(str, Enum):
 
 class TickData(BaseModel):
     """A single market tick (trade)."""
+
     model_config = ConfigDict(from_attributes=True)
 
     timestamp: datetime
@@ -40,6 +42,7 @@ class TickData(BaseModel):
 
 class OHLCV(BaseModel):
     """A single OHLCV candle."""
+
     model_config = ConfigDict(from_attributes=True)
 
     timestamp: datetime
@@ -71,12 +74,15 @@ class OHLCV(BaseModel):
             # At validation time other fields may not be set yet;
             # skip range check if bounds are missing.
             if v < low or v > high:
-                raise ValueError(f"{info.field_name} ({v}) must be within low ({low}) and high ({high})")
+                raise ValueError(
+                    f"{info.field_name} ({v}) must be within low ({low}) and high ({high})"
+                )
         return v
 
 
 class MarketDataRequest(BaseModel):
     """Request schema for fetching historical market data."""
+
     symbol: str = Field(..., min_length=1)
     from_date: datetime
     to_date: datetime
@@ -96,8 +102,10 @@ class MarketDataRequest(BaseModel):
 # Trading Signal Schemas
 # ---------------------------------------------------------------------------
 
+
 class SignalAction(str, Enum):
     """Possible trading actions from the model."""
+
     BUY = "buy"
     SELL = "sell"
     HOLD = "hold"
@@ -107,6 +115,7 @@ class SignalAction(str, Enum):
 
 class ConfidenceLevel(str, Enum):
     """Confidence bucket for a signal."""
+
     VERY_LOW = "very_low"
     LOW = "low"
     MEDIUM = "medium"
@@ -116,6 +125,7 @@ class ConfidenceLevel(str, Enum):
 
 class TradingSignal(BaseModel):
     """A trading signal emitted by the model."""
+
     model_config = ConfigDict(from_attributes=True)
 
     signal_id: str = Field(..., min_length=1)
@@ -157,8 +167,10 @@ class TradingSignal(BaseModel):
 # Model Registry Schemas
 # ---------------------------------------------------------------------------
 
+
 class ModelStatus(str, Enum):
     """Lifecycle status of a model version."""
+
     TRAINING = "training"
     READY = "ready"
     ACTIVE = "active"
@@ -168,6 +180,7 @@ class ModelStatus(str, Enum):
 
 class ModelMetrics(BaseModel):
     """Performance metrics for a model version."""
+
     model_config = ConfigDict(from_attributes=True)
 
     accuracy: float = Field(0.0, ge=0.0, le=1.0)
@@ -185,6 +198,7 @@ class ModelMetrics(BaseModel):
 
 class ModelVersion(BaseModel):
     """Complete model version record (Pydantic mirror of ModelVersionInfo)."""
+
     model_config = ConfigDict(from_attributes=True)
 
     version_id: int = Field(..., ge=1)
@@ -215,6 +229,7 @@ class ModelVersion(BaseModel):
 
 class ModelComparison(BaseModel):
     """Comparison result between two model versions."""
+
     version_a_id: int
     version_a_name: str
     version_b_id: int
@@ -228,8 +243,10 @@ class ModelComparison(BaseModel):
 # Training Pipeline Schemas
 # ---------------------------------------------------------------------------
 
+
 class TrainingStatus(str, Enum):
     """Status of a training job."""
+
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -239,6 +256,7 @@ class TrainingStatus(str, Enum):
 
 class TriggerReason(str, Enum):
     """Why a training job was started."""
+
     SCHEDULED_20MIN = "scheduled_20min"
     FORMULA_CHANGE = "formula_change"
     MANUAL = "manual"
@@ -247,6 +265,7 @@ class TriggerReason(str, Enum):
 
 class TrainingJob(BaseModel):
     """A single training job record."""
+
     model_config = ConfigDict(from_attributes=True)
 
     job_id: int = Field(..., ge=1)
@@ -279,6 +298,7 @@ class TrainingJob(BaseModel):
 
 class TrainingProgressUpdate(BaseModel):
     """Real-time training progress update sent via WebSocket."""
+
     job_id: int
     epoch: int
     total_epochs: int
@@ -292,6 +312,7 @@ class TrainingProgressUpdate(BaseModel):
 
 class PipelineStatus(BaseModel):
     """Current status of the auto-training pipeline."""
+
     is_running: bool = False
     current_job_id: Optional[int] = None
     last_training_time: Optional[datetime] = None
@@ -308,8 +329,10 @@ class PipelineStatus(BaseModel):
 # Portfolio / Position Schemas
 # ---------------------------------------------------------------------------
 
+
 class Position(BaseModel):
     """An open position."""
+
     model_config = ConfigDict(from_attributes=True)
 
     position_id: str = Field(..., min_length=1)
@@ -327,6 +350,7 @@ class Position(BaseModel):
 
 class PortfolioUpdate(BaseModel):
     """Portfolio snapshot update."""
+
     model_config = ConfigDict(from_attributes=True)
 
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -343,8 +367,10 @@ class PortfolioUpdate(BaseModel):
 # Alert / Notification Schemas
 # ---------------------------------------------------------------------------
 
+
 class AlertSeverity(str, Enum):
     """Severity level for system alerts."""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -353,6 +379,7 @@ class AlertSeverity(str, Enum):
 
 class Alert(BaseModel):
     """A system alert / notification."""
+
     model_config = ConfigDict(from_attributes=True)
 
     alert_id: str = Field(..., min_length=1)
@@ -369,8 +396,10 @@ class Alert(BaseModel):
 # WebSocket Message Schemas
 # ---------------------------------------------------------------------------
 
+
 class WSMessage(BaseModel):
     """Generic WebSocket envelope."""
+
     namespace: str = Field(..., pattern=r"^(market|signals|training|portfolio|alerts)$")
     event: str = Field(..., min_length=1)
     payload: Dict[str, Any] = Field(default_factory=dict)
@@ -379,12 +408,14 @@ class WSMessage(BaseModel):
 
 class SubscribeRequest(BaseModel):
     """Client subscription request."""
+
     namespace: str = Field(..., pattern=r"^(market|signals|training|portfolio|alerts)$")
     symbols: Optional[List[str]] = None  # filter for market namespace
 
 
 class UnsubscribeRequest(BaseModel):
     """Client unsubscription request."""
+
     namespace: str = Field(..., pattern=r"^(market|signals|training|portfolio|alerts)$")
 
 
@@ -392,19 +423,22 @@ class UnsubscribeRequest(BaseModel):
 # Backtest Schemas
 # ---------------------------------------------------------------------------
 
+
 class BacktestConfig(BaseModel):
     """Configuration for a backtest run."""
+
     start_date: datetime
     end_date: datetime
     symbols: List[str] = Field(default_factory=list)
     initial_capital: float = Field(100_000.0, gt=0)
     commission_pct: float = Field(0.02, ge=0.0)  # 0.02% per trade
-    slippage_pct: float = Field(0.01, ge=0.0)   # 0.01% slippage
+    slippage_pct: float = Field(0.01, ge=0.0)  # 0.01% slippage
     model_version_id: int = Field(..., ge=1)
 
 
 class BacktestResult(BaseModel):
     """Results from a backtest run."""
+
     model_config = ConfigDict(from_attributes=True)
 
     total_trades: int = 0

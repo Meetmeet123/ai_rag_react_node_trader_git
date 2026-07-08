@@ -23,16 +23,18 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
+from .document_processor import DocumentProcessor
 from .query_expander import QueryExpander
-
+from .vector_store import VectorStore
 
 # ---------------------------------------------------------------------------
 # Enums & data classes
 # ---------------------------------------------------------------------------
+
 
 class RetrievalSource(Enum):
     """Named sources that the retriever can query."""
@@ -70,6 +72,7 @@ class RetrievedContext:
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class MultiSourceRetriever:
     """Intelligent multi-source retriever for the TradeForge RAG pipeline.
@@ -113,7 +116,7 @@ class MultiSourceRetriever:
     DEFAULT_SOURCE_WEIGHTS: Dict[RetrievalSource, float] = {
         RetrievalSource.STRATEGIES: 1.0,
         RetrievalSource.BACKTEST_RESULTS: 0.9,
-        RetrievalSource.MARKET_REGIME: 1.2,       # current conditions are critical
+        RetrievalSource.MARKET_REGIME: 1.2,  # current conditions are critical
         RetrievalSource.NEWS_EVENTS: 1.1,
         RetrievalSource.INDICATOR_CONTEXT: 0.7,
         RetrievalSource.TRADE_HISTORY: 0.8,
@@ -206,10 +209,8 @@ class MultiSourceRetriever:
             base_filters["segment"] = segment
 
         # If time_window is set, add a metadata filter for recent documents
-        if time_window_hours:
-            cutoff = datetime.utcnow() - timedelta(hours=time_window_hours)
-            # Note: this requires metadata to have an ISO timestamp field
-            # Not all collections guarantee this, so we also do post-filtering
+        # Note: this requires metadata to have an ISO timestamp field.
+        # Not all collections guarantee this, so we also do post-filtering.
 
         # Launch concurrent searches
         search_tasks = [
@@ -582,7 +583,8 @@ class MultiSourceRetriever:
         if lookback_hours:
             cutoff = datetime.utcnow() - timedelta(hours=lookback_hours)
             contexts = [
-                ctx for ctx in contexts
+                ctx
+                for ctx in contexts
                 if ctx.timestamp is None or ctx.timestamp >= cutoff
             ]
 
@@ -629,8 +631,12 @@ class MultiSourceRetriever:
                 logger.error(f"Search on '{source.value}' failed: {exc}")
                 # Return empty result on failure so other sources still work
                 from .vector_store import SearchResult
+
                 return SearchResult(
-                    documents=[], total_found=0, search_time_ms=0.0, collection=source.value
+                    documents=[],
+                    total_found=0,
+                    search_time_ms=0.0,
+                    collection=source.value,
                 )
 
         result = await loop.run_in_executor(None, _search)
@@ -661,7 +667,8 @@ class MultiSourceRetriever:
         if time_window_hours:
             cutoff = datetime.utcnow() - timedelta(hours=time_window_hours)
             contexts = [
-                ctx for ctx in contexts
+                ctx
+                for ctx in contexts
                 if ctx.timestamp is None or ctx.timestamp >= cutoff
             ]
 

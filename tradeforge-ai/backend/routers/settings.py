@@ -87,10 +87,16 @@ def _default_risk_settings() -> Dict[str, Any]:
     """Return the default/global risk configuration as a plain dict."""
     return {
         "daily_loss_limit": RiskConfig.model_fields["daily_loss_limit"].default,
-        "daily_loss_limit_enabled": RiskConfig.model_fields["daily_loss_limit_enabled"].default,
+        "daily_loss_limit_enabled": RiskConfig.model_fields[
+            "daily_loss_limit_enabled"
+        ].default,
         "max_positions": RiskConfig.model_fields["max_positions"].default,
-        "max_exposure_per_trade_pct": RiskConfig.model_fields["max_exposure_per_trade_pct"].default,
-        "max_exposure_overall_pct": RiskConfig.model_fields["max_exposure_overall_pct"].default,
+        "max_exposure_per_trade_pct": RiskConfig.model_fields[
+            "max_exposure_per_trade_pct"
+        ].default,
+        "max_exposure_overall_pct": RiskConfig.model_fields[
+            "max_exposure_overall_pct"
+        ].default,
         "kill_switch_enabled": RiskConfig.model_fields["kill_switch_enabled"].default,
         "auto_square_off_time": RiskConfig.model_fields["auto_square_off_time"].default,
     }

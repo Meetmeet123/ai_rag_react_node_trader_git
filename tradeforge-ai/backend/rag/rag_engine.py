@@ -52,10 +52,10 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Main orchestrator
 # ---------------------------------------------------------------------------
+
 
 class TradeForgeRAG:
     """Production RAG engine that orchestrates all retrieval components.
@@ -231,7 +231,9 @@ class TradeForgeRAG:
             Symbols to track for automatic regime updates.
         """
         if not self._initialized:
-            raise RuntimeError("RAG engine must be initialized before starting ingestion")
+            raise RuntimeError(
+                "RAG engine must be initialized before starting ingestion"
+            )
 
         from .ingestion_pipeline import RAGIngestionPipeline
 
@@ -317,7 +319,9 @@ class TradeForgeRAG:
         self._ensure_initialized()
         t0 = time.perf_counter()
 
-        logger.info(f"Getting strategy context: prompt='{user_prompt[:60]}...' instrument={instrument}")
+        logger.info(
+            f"Getting strategy context: prompt='{user_prompt[:60]}...' instrument={instrument}"
+        )
 
         try:
             # Retrieve all context categories concurrently
@@ -346,9 +350,9 @@ class TradeForgeRAG:
                 "market_context": self._contexts_to_dicts(
                     results.get("market_context", [])
                 )[:top_k],
-                "recent_news": self._contexts_to_dicts(
-                    results.get("recent_news", [])
-                )[:top_k],
+                "recent_news": self._contexts_to_dicts(results.get("recent_news", []))[
+                    :top_k
+                ],
                 "indicator_explanations": self._contexts_to_dicts(
                     results.get("indicator_explanations", [])
                 )[:top_k],
@@ -372,9 +376,7 @@ class TradeForgeRAG:
                     "backtest_insights",
                 )
             )
-            logger.info(
-                f"Strategy context: {total_items} items in {elapsed:.1f} ms"
-            )
+            logger.info(f"Strategy context: {total_items} items in {elapsed:.1f} ms")
             return context
 
         except Exception as exc:
@@ -812,13 +814,13 @@ class TradeForgeRAG:
         vector_stats = self.vector_store.get_all_stats() if self.vector_store else {}
         ingestion_stats = self.ingestion.get_stats() if self.ingestion else {}
 
-        avg_query_time = (
-            self._total_query_time_ms / max(1, self._queries_served)
-        )
+        avg_query_time = self._total_query_time_ms / max(1, self._queries_served)
 
         return {
             "status": "initialized",
-            "initialized_at": self._initialized_at.isoformat() if self._initialized_at else None,
+            "initialized_at": (
+                self._initialized_at.isoformat() if self._initialized_at else None
+            ),
             "vector_store": {
                 "persist_dir": self.vector_store_dir,
                 "embedding_model": self.embedding_model,

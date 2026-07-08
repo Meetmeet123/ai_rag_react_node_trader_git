@@ -24,8 +24,6 @@ Typical usage::
 
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass, field
 from datetime import date, datetime, time as dt_time, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -33,13 +31,14 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
 
-
 # ---------------------------------------------------------------------------
 # Enums & data classes
 # ---------------------------------------------------------------------------
 
+
 class RiskLevel(str, Enum):
     """Severity classification returned with every risk check."""
+
     NORMAL = "normal"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -48,6 +47,7 @@ class RiskLevel(str, Enum):
 
 class RejectionReason(str, Enum):
     """Machine-readable reason when a trade is rejected."""
+
     KILL_SWITCH_ACTIVE = "kill_switch_active"
     DAILY_LOSS_LIMIT = "daily_loss_limit"
     MAX_POSITIONS = "max_positions"
@@ -143,6 +143,7 @@ class RiskConfig(BaseModel):
 # Risk Manager
 # ---------------------------------------------------------------------------
 
+
 class RiskManager:
     """Central risk gate-keeper.
 
@@ -162,7 +163,7 @@ class RiskManager:
 
         # Mutable session state
         self.daily_pnl: float = 0.0
-        self.daily_loss_used: float = 0.0          # Only tracks losses
+        self.daily_loss_used: float = 0.0  # Only tracks losses
         self.daily_trades: int = 0
         self.daily_wins: int = 0
         self.daily_losses: int = 0
@@ -279,7 +280,9 @@ class RiskManager:
 
         # 9. Exposure limits (per-trade + overall)
         current_exposure = self._compute_current_exposure(current_positions)
-        exposure_check = self._check_exposure(trade_value, current_exposure, portfolio_value)
+        exposure_check = self._check_exposure(
+            trade_value, current_exposure, portfolio_value
+        )
         if not exposure_check.allowed:
             return exposure_check
 
@@ -364,20 +367,26 @@ class RiskManager:
             return RiskCheckResult(
                 allowed=False,
                 reason=f"Daily loss limit breached: {self.daily_loss_used:,.2f} / "
-                       f"{self.cfg.daily_loss_limit:,.2f}",
+                f"{self.cfg.daily_loss_limit:,.2f}",
                 rejection_reason=RejectionReason.DAILY_LOSS_LIMIT,
                 risk_level=RiskLevel.FATAL,
             )
 
         # Warning level
-        warning_threshold = self.cfg.daily_loss_limit * (self.cfg.daily_loss_warning_pct / 100)
+        warning_threshold = self.cfg.daily_loss_limit * (
+            self.cfg.daily_loss_warning_pct / 100
+        )
         if self.daily_loss_used >= warning_threshold:
             return RiskCheckResult(
                 allowed=True,
                 reason=f"WARNING: Daily loss at {self.daily_loss_used:,.2f} / "
-                       f"{self.cfg.daily_loss_limit:,.2f} ({self.cfg.daily_loss_warning_pct}% limit)",
+                f"{self.cfg.daily_loss_limit:,.2f} ({self.cfg.daily_loss_warning_pct}% limit)",
                 risk_level=RiskLevel.WARNING,
-                metadata={"daily_loss_pct": round(self.daily_loss_used / self.cfg.daily_loss_limit * 100, 1)},
+                metadata={
+                    "daily_loss_pct": round(
+                        self.daily_loss_used / self.cfg.daily_loss_limit * 100, 1
+                    )
+                },
             )
 
         return RiskCheckResult(allowed=True)
@@ -432,12 +441,24 @@ class RiskManager:
         total_pct = ((current_exposure + new_trade_value) / portfolio_value) * 100
 
         if trade_pct > self.cfg.max_exposure_per_trade_pct:
-            max_allowed_value = portfolio_value * (self.cfg.max_exposure_per_trade_pct / 100)
-            suggested_qty = int(max_allowed_value / (new_trade_value / max(1, int(new_trade_value / max(new_trade_value, 1))))) if new_trade_value > 0 else 0
+            max_allowed_value = portfolio_value * (
+                self.cfg.max_exposure_per_trade_pct / 100
+            )
+            suggested_qty = (
+                int(
+                    max_allowed_value
+                    / (
+                        new_trade_value
+                        / max(1, int(new_trade_value / max(new_trade_value, 1)))
+                    )
+                )
+                if new_trade_value > 0
+                else 0
+            )
             return RiskCheckResult(
                 allowed=False,
                 reason=f"Per-trade exposure too high: {trade_pct:.1f}% > "
-                       f"{self.cfg.max_exposure_per_trade_pct}%",
+                f"{self.cfg.max_exposure_per_trade_pct}%",
                 rejection_reason=RejectionReason.MAX_EXPOSURE_TRADE,
                 risk_level=RiskLevel.WARNING,
                 suggested_qty=suggested_qty if suggested_qty > 0 else None,
@@ -447,7 +468,7 @@ class RiskManager:
             return RiskCheckResult(
                 allowed=False,
                 reason=f"Overall exposure too high: {total_pct:.1f}% > "
-                       f"{self.cfg.max_exposure_overall_pct}%",
+                f"{self.cfg.max_exposure_overall_pct}%",
                 rejection_reason=RejectionReason.MAX_EXPOSURE_OVERALL,
                 risk_level=RiskLevel.WARNING,
             )
@@ -468,7 +489,7 @@ class RiskManager:
             return RiskCheckResult(
                 allowed=False,
                 reason=f"Consecutive loss limit: {self.consecutive_losses} losses. "
-                       f"Cooldown until {self.cooldown_until.strftime('%H:%M:%S')}",
+                f"Cooldown until {self.cooldown_until.strftime('%H:%M:%S')}",
                 rejection_reason=RejectionReason.CONSECUTIVE_LOSSES,
                 risk_level=RiskLevel.CRITICAL,
             )
@@ -478,7 +499,7 @@ class RiskManager:
             return RiskCheckResult(
                 allowed=True,
                 reason=f"WARNING: {self.consecutive_losses} consecutive losses "
-                       f"(limit: {self.cfg.consecutive_loss_limit})",
+                f"(limit: {self.cfg.consecutive_loss_limit})",
                 risk_level=RiskLevel.WARNING,
             )
 
@@ -554,7 +575,10 @@ class RiskManager:
         logger.info(
             "Trade closed | pnl={:,.2f} daily_pnl={:,.2f} "
             "daily_loss={:,.2f} consecutive_losses={}",
-            pnl, self.daily_pnl, self.daily_loss_used, self.consecutive_losses,
+            pnl,
+            self.daily_pnl,
+            self.daily_loss_used,
+            self.consecutive_losses,
         )
 
     # ------------------------------------------------------------------
@@ -585,7 +609,10 @@ class RiskManager:
         warning_dt = sq_off_dt - timedelta(seconds=self.cfg.square_off_warning_seconds)
         warning_time = warning_dt.time()
 
-        if warning_time <= t < self.cfg.auto_square_off_time and not self.square_off_warning_issued:
+        if (
+            warning_time <= t < self.cfg.auto_square_off_time
+            and not self.square_off_warning_issued
+        ):
             self.square_off_warning_issued = True
             return True
         return False
